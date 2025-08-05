@@ -51,7 +51,7 @@ app.get('/', (req, res) => {
 });
 
 // ロール付与API
-app.post('/assign-role', async (req, res) => {
+app.post('/add-role', async (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: 'userIdが必要です' });
 
