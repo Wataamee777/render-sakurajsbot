@@ -114,6 +114,29 @@ app.get('/auth/', (req, res) => {
 });
 
 // OAuthコールバック処理
+function extractGlobalIP(ipString) {
+  if (!ipString) return null;
+  const ips = ipString.split(',').map(ip => ip.trim());
+  for (const ip of ips) {
+    if (isGlobalIP(ip)) return ip;
+  }
+  return null;
+}
+
+function isGlobalIP(ip) {
+  if (!ip) return false;
+  if (
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    ip.startsWith('172.16.') || // ざっくりOK
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip.startsWith('fc') ||
+    ip.startsWith('fe80')
+  ) return false;
+  return true;
+}
+
 app.get('/auth/callback', async (req, res) => {
   const code = req.query.code;
   const rawIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
