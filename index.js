@@ -28,18 +28,13 @@ const commands = [
   new SlashCommandBuilder()
     .setName('auth')
     .setDescription('認証用リンクを表示します')
-].map(command => command.toJSON());
+].map(cmd => cmd.toJSON());
 
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-(async () => {
-  try {
-    console.log('Slashコマンド登録中...');
-    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log('Slashコマンド登録完了');
-  } catch (error) {
-    console.error(error);
-  }
-})();
+async function registerCommands() {
+  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+  console.log('✅ グローバルコマンド登録完了');
+}
 
 // コマンド処理
 client.on('interactionCreate', async interaction => {
