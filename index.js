@@ -5,6 +5,7 @@ import {Client,GatewayIntentBits,REST,Routes,SlashCommandBuilder,EmbedBuilder,Ac
 const TOKEN = process.env.DISCORD_BOT_TOKEN; // Renderの環境変数にセットしてね
 const GUILD_ID = '1208962938388484107';
 const ROLE_ID = '1208972162593988608';
+const CLIENT_ID= '1350015325055221770'
 
 const app = express();
 const PORT = process.env.PORT || 3000;
