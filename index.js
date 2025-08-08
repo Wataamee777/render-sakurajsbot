@@ -109,7 +109,7 @@ client.login(DISCORD_BOT_TOKEN);
 app.get('/auth/', (req, res) => {
   res.send(`
     <h1>認証ページへようこそ</h1>
-    <p><a href="https://discord.com/oauth2/authorize?client_id=1337360704587567124&redirect_uri=https%3A%2F%2Fsakurajsbot-auth.onrender.com%2Fauth%2Fcallback&response_type=code&scope=identify">Discordで認証する</a></p>
+    <p><a href="https://discord.com/oauth2/authorize?client_id=1350015325055221770&redirect_uri=https%3A%2F%2Fsakurajsbot-auth.onrender.com%2Fauth%2Fcallback&response_type=code&scope=identify">Discordで認証する</a></p>
   `);
 });
 
