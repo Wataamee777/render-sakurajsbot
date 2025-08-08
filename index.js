@@ -168,7 +168,7 @@ if (!tokenData.access_token) {
     if (ipDup.rowCount > 0 && ipDup.rows[0].discord_id !== user.id) {
       await pool.query(
         `INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1, $2, $3)`,
-        [user.id, 'sub_account_blocked', `IP重複検知 IP: ${ip}`]
+        [user.id, 'sub_account_blocked', `IP重複検知 IP: ${ipDup}`]
       );
       return res.status(403).send('サブアカウントを検知しました。管理者に連絡してください。');
     }
@@ -188,7 +188,7 @@ if (!tokenData.access_token) {
     // 認証ログ記録
     await pool.query(
       `INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1, 'auth_success', $2)`,
-      [user.id, `認証成功 IP: ${ip}`]
+      [user.id, `認証成功 IP: ${ipDup}`]
     );
 
     // ロール付与
