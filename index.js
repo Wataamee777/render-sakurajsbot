@@ -125,22 +125,27 @@ app.get('/auth/callback', async (req, res) => {
   try {
     // Discord トークン取得
     const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: DISCORD_CLIENT_ID,
-        client_secret: DISCORD_CLIENT_SECRET, // 実際はclient_secret用の環境変数を使うべき
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: REDIRECT_URI,
-        scope: 'identify'
-      })
-    });
-    const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) {
-      return res.status(400).send(`トークン取得失敗: ${JSON.stringify(tokenData)}`);
-    }
+    // Discord トークン取得（Basic認証方式）
+const basicAuth = Buffer.from(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`).toString('base64');
 
+const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Authorization': `Basic ${basicAuth}`
+  },
+  body: new URLSearchParams({
+    grant_type: 'authorization_code',
+    code: code,
+    redirect_uri: REDIRECT_URI
+  })
+});
+
+const tokenData = await tokenRes.json();
+if (!tokenData.access_token) {
+  return res.status(400).send(`トークン取得失敗: ${JSON.stringify(tokenData)}`);
+}
+    
     // ユーザー情報取得
     const userRes = await fetch('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` }
