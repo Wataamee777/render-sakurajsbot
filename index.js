@@ -40,7 +40,7 @@ async function registerCommands() {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'auth') {
+ case 'auth': {
     const embed = new EmbedBuilder()
       .setTitle('認証が必要です')
       .setDescription('以下のボタンから認証を行ってください。')
@@ -54,8 +54,7 @@ client.on('interactionCreate', async interaction => {
     );
 
     await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-  }
-});
+  });
 
 // ロール付与関数
 async function assignRoleToUser(userId) {
