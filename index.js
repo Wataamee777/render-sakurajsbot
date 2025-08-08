@@ -22,6 +22,45 @@ client.once('ready', () => {
 
 client.login(TOKEN);
 
+// スラッシュコマンド登録
+const commands = [
+  new SlashCommandBuilder()
+    .setName('auth')
+    .setDescription('認証用リンクを表示します')
+].map(command => command.toJSON());
+
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+(async () => {
+  try {
+    console.log('Slashコマンド登録中...');
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log('Slashコマンド登録完了');
+  } catch (error) {
+    console.error(error);
+  }
+})();
+
+// コマンド処理
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === 'auth') {
+    const embed = new EmbedBuilder()
+      .setTitle('認証が必要です')
+      .setDescription('以下のボタンから認証を行ってください。')
+      .setColor(0x5865F2);
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel('認証ページへ')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`${REDIRECT_URI}`)
+    );
+
+    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  }
+});
+
 // ロール付与関数
 async function assignRoleToUser(userId) {
   try {
