@@ -1,11 +1,12 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import {Client,GatewayIntentBits,REST,Routes,SlashCommandBuilder,EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN; // Renderの環境変数にセットしてね
 const GUILD_ID = '1208962938388484107';
 const ROLE_ID = '1208972162593988608';
-const CLIENT_ID= '1350015325055221770'
+const CLIENT_ID = process.env.CLIENT_ID || '1350015325055221770';
+const REDIRECT_URI = 'https://sakurahp.f5.si/auth';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +20,7 @@ const client = new Client({
 
 client.once('ready', () => {
   console.log(`Bot logged in as ${client.user.tag}`);
+  registerCommands().catch(console.error);
 });
 
 client.login(TOKEN);
@@ -31,33 +33,34 @@ const commands = [
 ].map(cmd => cmd.toJSON());
 
 async function registerCommands() {
-  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
   console.log('✅ グローバルコマンド登録完了');
 }
 
 // コマンド処理
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-  
-switch (interaction.commandName) {
-    
- case 'auth': {
-    const embed = new EmbedBuilder()
-      .setTitle('認証が必要です')
-      .setDescription('以下のボタンから認証を行ってください。')
-      .setColor(0x5865F2);
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel('認証ページへ')
-        .setStyle(ButtonStyle.Link)
-        .setURL(`${REDIRECT_URI}`)
-    );
+  switch (interaction.commandName) {
+    case 'auth': {
+      const embed = new EmbedBuilder()
+        .setTitle('認証が必要です')
+        .setDescription('以下のボタンから認証を行ってください。')
+        .setColor(0x5865F2);
 
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
- } 
- };
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel('認証ページへ')
+          .setStyle(ButtonStyle.Link)
+          .setURL(REDIRECT_URI)
+      );
+
+      await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+      break;
+    }
+  }
+});
 
 // ロール付与関数
 async function assignRoleToUser(userId) {
