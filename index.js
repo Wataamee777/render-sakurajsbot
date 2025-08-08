@@ -39,7 +39,9 @@ async function registerCommands() {
 // コマンド処理
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-
+  
+switch (interaction.commandName) {
+    
  case 'auth': {
     const embed = new EmbedBuilder()
       .setTitle('認証が必要です')
@@ -54,7 +56,8 @@ client.on('interactionCreate', async interaction => {
     );
 
     await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-  });
+ } 
+ };
 
 // ロール付与関数
 async function assignRoleToUser(userId) {
