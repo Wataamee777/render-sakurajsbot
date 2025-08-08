@@ -116,9 +116,11 @@ app.get('/auth/', (req, res) => {
 // OAuthコールバック処理
 app.get('/auth/callback', async (req, res) => {
   const code = req.query.code;
-  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+  const rawIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = extractGlobalIP(rawIP);
+
   if (!code) return res.status(400).send('認証コードがありません');
-  if (!ip) return res.status(400).send('IPが取得できません');
+  if (!ip) return res.status(400).send('グローバルIPが取得できません');
 
   const ipHash = hashIP(ip);
 
