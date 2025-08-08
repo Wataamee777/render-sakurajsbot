@@ -123,11 +123,11 @@ app.get('/auth/callback', async (req, res) => {
   const ipHash = hashIP(ip);
 
   try {
-    // Discord トークン取得
-    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
     // Discord トークン取得（Basic認証方式）
-const basicAuth = Buffer.from(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`).toString('base64');
-
+    const basicAuth = Buffer.from(
+      `${process.env.DISCORD_CLIENT_ID}:${process.env.DISCORD_CLIENT_SECRET}`
+    ).toString('base64');
+    
 const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
   method: 'POST',
   headers: {
