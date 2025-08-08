@@ -1,6 +1,8 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import { Client, GatewayIntentBits } from 'discord.js';
+import {Client,GatewayIntentBits,REST,Routes,SlashCommandBuilder,EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from 'discord.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN; // Renderの環境変数にセットしてね
 const GUILD_ID = '1208962938388484107';
