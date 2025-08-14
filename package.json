@@ -9,7 +9,7 @@
     "dev": "nodemon index.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "dependencies": {
     "discord.js": "^14.11.0",
