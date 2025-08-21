@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
+    "build": "echo 'No build step required'",
     "dev": "nodemon index.js"
   },
   "engines": {
