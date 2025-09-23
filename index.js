@@ -191,6 +191,7 @@ if (interaction.commandName === 'log') {
     console.error(err);
     await interaction.editReply({ content: 'ログ取得中にエラーが発生しました。' });
   }
+}
 });
 client.login(DISCORD_BOT_TOKEN);
 
