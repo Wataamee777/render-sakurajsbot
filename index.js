@@ -115,7 +115,7 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
   }
- if (interaction.commandName === 'log') {
+if (interaction.commandName === 'log') {
   if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
     return await interaction.reply({
       content: '❌ このコマンドを実行する権限がありません。',
@@ -126,7 +126,7 @@ client.on('interactionCreate', async interaction => {
   const type = interaction.options.getString('type');
 
   try {
-    let result, csv;
+    let result, embed;
 
     if (type === 'log') {
       result = await pool.query(
@@ -135,32 +135,43 @@ client.on('interactionCreate', async interaction => {
          ORDER BY created_at DESC
          LIMIT 20`
       );
-      csv = `"id","discord_id","event_type","detail","created_at"\n` +
-        result.rows.map(r =>
-          `"${r.id}","${r.discord_id}","${r.event_type}","${r.detail || ''}","${new Date(r.created_at).toISOString()}"`
-        ).join('\n');
-    } else {
+
+      if (result.rowCount === 0) {
+        return await interaction.reply({ content: 'ログはまだありません。', ephemeral: true });
+      }
+
+      const rows = result.rows.map(r =>
+        `\`${r.id}\` | <@${r.discord_id}> | ${r.event_type} | ${r.detail || ''} | <t:${Math.floor(new Date(r.created_at).getTime() / 1000)}:f>`
+      ).join('\n');
+
+      embed = new EmbedBuilder()
+        .setTitle('📜 認証ログ (直近20件)')
+        .setDescription(rows.length > 4000 ? rows.slice(0, 4000) + '...\n(省略)' : rows)
+        .setColor(0x5865F2);
+
+    } else if (type === 'ip') {
       result = await pool.query(
         `SELECT id, discord_id, ip_hash, created_at
          FROM user_ips
          ORDER BY created_at DESC
          LIMIT 20`
       );
-      csv = `"id","discord_id","ip_hash","created_at"\n` +
-        result.rows.map(r =>
-          `"${r.id}","${r.discord_id}","${r.ip_hash}","${new Date(r.created_at).toISOString()}"`
-        ).join('\n');
+
+      if (result.rowCount === 0) {
+        return await interaction.reply({ content: 'IPログはまだありません。', ephemeral: true });
+      }
+
+      const rows = result.rows.map(r =>
+        `\`${r.id}\` | <@${r.discord_id}> | \`${r.ip_hash}\` | <t:${Math.floor(new Date(r.created_at).getTime() / 1000)}:f>`
+      ).join('\n');
+
+      embed = new EmbedBuilder()
+        .setTitle('🌐 IPログ (直近20件)')
+        .setDescription(rows.length > 4000 ? rows.slice(0, 4000) + '...\n(省略)' : rows)
+        .setColor(0x2ECC71);
     }
 
-    if (!result || result.rowCount === 0) {
-      return await interaction.reply({ content: 'ログはまだありません。', ephemeral: true });
-    }
-
-    // CSVをファイルで送信
-    const buffer = Buffer.from(csv, 'utf-8');
-    const attachment = new AttachmentBuilder(buffer, { name: `${type}_logs.csv` });
-
-    await interaction.reply({ files: [attachment], ephemeral: true });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
 
   } catch (err) {
     console.error('ログ取得エラー:', err);
@@ -170,6 +181,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 }
+});
 client.login(DISCORD_BOT_TOKEN);
 
 app.get('/auth/', (req, res) => {
