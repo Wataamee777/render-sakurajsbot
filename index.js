@@ -115,72 +115,85 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
   }
-if (interaction.commandName === 'log') {
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-    return await interaction.reply({
-      content: '❌ このコマンドを実行する権限がありません。',
-      ephemeral: true
-    });
-  }
-
-  const type = interaction.options.getString('type');
-
-  try {
-    let result, embed;
-
-    if (type === 'log') {
-      result = await pool.query(
-        `SELECT id, discord_id, event_type, detail, created_at
-         FROM auth_logs
-         ORDER BY created_at DESC
-         LIMIT 20`
-      );
-
-      if (result.rowCount === 0) {
-        return await interaction.reply({ content: 'ログはまだありません。', ephemeral: true });
-      }
-
-      const rows = result.rows.map(r =>
-        `\`${r.id}\` | <@${r.discord_id}> | ${r.event_type} | ${r.detail || ''} | <t:${Math.floor(new Date(r.created_at).getTime() / 1000)}:f>`
-      ).join('\n');
-
-      embed = new EmbedBuilder()
-        .setTitle('📜 認証ログ (直近20件)')
-        .setDescription(rows.length > 4000 ? rows.slice(0, 4000) + '...\n(省略)' : rows)
-        .setColor(0x5865F2);
-
-    } else if (type === 'ip') {
-      result = await pool.query(
-        `SELECT id, discord_id, ip_hash, created_at
-         FROM user_ips
-         ORDER BY created_at DESC
-         LIMIT 20`
-      );
-
-      if (result.rowCount === 0) {
-        return await interaction.reply({ content: 'IPログはまだありません。', ephemeral: true });
-      }
-
-      const rows = result.rows.map(r =>
-        `\`${r.id}\` | <@${r.discord_id}> | \`${r.ip_hash}\` | <t:${Math.floor(new Date(r.created_at).getTime() / 1000)}:f>`
-      ).join('\n');
-
-      embed = new EmbedBuilder()
-        .setTitle('🌐 IPログ (直近20件)')
-        .setDescription(rows.length > 4000 ? rows.slice(0, 4000) + '...\n(省略)' : rows)
-        .setColor(0x2ECC71);
+  
+  if (interaction.commandName === 'log') {
+    // 権限チェック
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+      return await interaction.reply({
+        content: '❌ このコマンドを実行する権限がありません。',
+        ephemeral: true
+      });
     }
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    const type = interaction.options.getString('type');
 
-  } catch (err) {
-    console.error('ログ取得エラー:', err);
-    await interaction.reply({
-      content: 'ログ取得中にエラーが発生しました。',
-      ephemeral: true
-    });
+    try {
+      let result;
+
+      if (type === 'log') {
+        result = await pool.query(
+          `SELECT id, discord_id, event_type, detail, created_at
+           FROM auth_logs
+           ORDER BY created_at DESC
+           LIMIT 20`
+        );
+
+        if (result.rowCount === 0) {
+          return await interaction.reply({ content: '認証ログはまだありません。', ephemeral: true });
+        }
+
+        const description = result.rows.map(r => {
+          const unixTime = Math.floor(new Date(r.created_at).getTime() / 1000);
+          return `**ID:** ${r.id}\n` +
+                 `👤 ユーザー: <@${r.discord_id}>\n` +
+                 `📌 イベント: ${r.event_type}\n` +
+                 `📝 詳細: ${r.detail || 'なし'}\n` +
+                 `⏰ 日時: <t:${unixTime}:f>`;
+        }).join('\n────────────\n');
+
+        const embed = new EmbedBuilder()
+          .setTitle('📜 認証ログ (直近20件)')
+          .setDescription(description)
+          .setColor(0x5865F2);
+
+        return await interaction.reply({ embeds: [embed], ephemeral: true });
+
+      } else if (type === 'ip') {
+        result = await pool.query(
+          `SELECT id, discord_id, ip_hash, created_at
+           FROM user_ips
+           ORDER BY created_at DESC
+           LIMIT 20`
+        );
+
+        if (result.rowCount === 0) {
+          return await interaction.reply({ content: 'IPログはまだありません。', ephemeral: true });
+        }
+
+        const description = result.rows.map(r => {
+          const unixTime = Math.floor(new Date(r.created_at).getTime() / 1000);
+          return `**ID:** ${r.id}\n` +
+                 `👤 ユーザー: <@${r.discord_id}>\n` +
+                 `🌐 IPハッシュ: \`${r.ip_hash}\`\n` +
+                 `⏰ 日時: <t:${unixTime}:f>`;
+        }).join('\n────────────\n');
+
+        const embed = new EmbedBuilder()
+          .setTitle('🌐 IPログ (直近20件)')
+          .setDescription(description)
+          .setColor(0x2ECC71);
+
+        return await interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+
+    } catch (err) {
+      console.error('ログ取得エラー:', err);
+      return await interaction.reply({
+        content: 'ログ取得中にエラーが発生しました。',
+        ephemeral: true
+      });
+    }
   }
-}
 });
 client.login(DISCORD_BOT_TOKEN);
 
