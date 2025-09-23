@@ -216,7 +216,7 @@ if (!tokenData.access_token) {
     // 認証ログ記録
     await pool.query(
       `INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1, 'auth_success', $2)`,
-      [user.id, `認証成功 IP: ${ipDup}`]
+      [user.id, `認証成功 IP: ${ipHash}`]
     );
 
     // ロール付与
