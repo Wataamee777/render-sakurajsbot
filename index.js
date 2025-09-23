@@ -167,7 +167,7 @@ client.on('interactionCreate', async interaction => {
         );
 
         if (result.rowCount === 0) {
-          return await interaction.reply({ content: 'IPログはまだありません。', ephemeral: true });
+          return await interaction.reply({ content: 'IPログはまだありません。', ephemeral: false });
         }
 
         const description = result.rows.map(r => {
@@ -183,7 +183,7 @@ client.on('interactionCreate', async interaction => {
           .setDescription(description)
           .setColor(0x2ECC71);
 
-        return await interaction.reply({ embeds: [embed], ephemeral: true });
+        return await interaction.reply({ embeds: [embed], ephemeral: false });
       }
 
     } catch (err) {
