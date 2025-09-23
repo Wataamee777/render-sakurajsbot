@@ -122,7 +122,7 @@ client.on('interactionCreate', async interaction => {
   }
   
 if (interaction.commandName === 'log') {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ ephemeral: false });
 
   const type = interaction.options.getString('type');
   const page = interaction.options.getInteger('range') || 1; // デフォルト1ページ目
