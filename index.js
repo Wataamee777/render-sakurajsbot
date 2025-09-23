@@ -115,9 +115,8 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
   }
-  if (interaction.commandName === 'log') {
-  // 権限チェック（ManageMessagesが必要）
-  if (!interaction.member.permissions.has('ManageMessages')) {
+ if (interaction.commandName === 'log') {
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
     return await interaction.reply({
       content: '❌ このコマンドを実行する権限がありません。',
       ephemeral: true
@@ -130,28 +129,23 @@ client.on('interactionCreate', async interaction => {
     let result, csv;
 
     if (type === 'log') {
-      // 認証ログ
       result = await pool.query(
         `SELECT id, discord_id, event_type, detail, created_at
          FROM auth_logs
          ORDER BY created_at DESC
          LIMIT 20`
       );
-
       csv = `"id","discord_id","event_type","detail","created_at"\n` +
         result.rows.map(r =>
           `"${r.id}","${r.discord_id}","${r.event_type}","${r.detail || ''}","${new Date(r.created_at).toISOString()}"`
         ).join('\n');
-
-    } else if (type === 'ip') {
-      // IPテーブル
+    } else {
       result = await pool.query(
         `SELECT id, discord_id, ip_hash, created_at
          FROM user_ips
          ORDER BY created_at DESC
          LIMIT 20`
       );
-
       csv = `"id","discord_id","ip_hash","created_at"\n` +
         result.rows.map(r =>
           `"${r.id}","${r.discord_id}","${r.ip_hash}","${new Date(r.created_at).toISOString()}"`
@@ -159,16 +153,15 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (!result || result.rowCount === 0) {
-      return await interaction.reply({
-        content: 'ログはまだありません。',
-        ephemeral: true
-      });
+      return await interaction.reply({ content: 'ログはまだありません。', ephemeral: true });
     }
 
-    await interaction.reply({
-      content: `\`\`\`csv\n${csv}\n\`\`\``,
-      ephemeral: true
-    });
+    // CSVをファイルで送信
+    const buffer = Buffer.from(csv, 'utf-8');
+    const attachment = new AttachmentBuilder(buffer, { name: `${type}_logs.csv` });
+
+    await interaction.reply({ files: [attachment], ephemeral: true });
+
   } catch (err) {
     console.error('ログ取得エラー:', err);
     await interaction.reply({
@@ -177,9 +170,6 @@ client.on('interactionCreate', async interaction => {
     });
   }
 }
-
-});
-
 client.login(DISCORD_BOT_TOKEN);
 
 app.get('/auth/', (req, res) => {
