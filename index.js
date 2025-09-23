@@ -64,6 +64,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName('auth')
     .setDescription('認証ページの案内を表示します')
+  new SlashCommandBuilder()
+    .setName('log')
+    .setDescription('認証ログを表示します')
 ].map(cmd => cmd.toJSON());
 
 async function registerCommands() {
@@ -73,7 +76,7 @@ async function registerCommands() {
       Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID),
       { body: commands }
     );
-    console.log('✅ /auth コマンド登録完了');
+    console.log('✅ コマンド登録完了');
   } catch (e) {
     console.error('コマンド登録エラー:', e);
   }
