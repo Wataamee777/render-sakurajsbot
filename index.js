@@ -78,9 +78,9 @@ const commands = [
          ) 
      )
      .addIntegerOption(option =>
-            option.setName('range')
-              .setDescription('ページ番号 (1ページ=5件)')
-              .setRequired(false)
+       option.setName('range')
+         .setDescription('ページ番号 (1ページ=5件)')
+         .setRequired(false)
      )
 ].map(cmd => cmd.toJSON());
 
