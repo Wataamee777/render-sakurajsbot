@@ -156,7 +156,7 @@ client.on('interactionCreate', async interaction => {
           .setDescription(description)
           .setColor(0x5865F2);
 
-        return await interaction.reply({ embeds: [embed], ephemeral: true });
+        return await interaction.reply({ embeds: [embed], ephemeral: false });
 
       } else if (type === 'ip') {
         result = await pool.query(
@@ -167,7 +167,7 @@ client.on('interactionCreate', async interaction => {
         );
 
         if (result.rowCount === 0) {
-          return await interaction.reply({ content: 'IPログはまだありません。', ephemeral: false });
+          return await interaction.reply({ content: 'IPログはまだありません。', ephemeral: true });
         }
 
         const description = result.rows.map(r => {
