@@ -10,7 +10,8 @@ import {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  PermissionsBitField
 } from 'discord.js';
 import pkg from 'pg';
 const { Pool } = pkg;
@@ -63,10 +64,19 @@ async function checkVPN(ip) {
 const commands = [
   new SlashCommandBuilder()
     .setName('auth')
-    .setDescription('認証ページの案内を表示します')
+    .setDescription('認証ページの案内を表示します'),
   new SlashCommandBuilder()
     .setName('log')
-    .setDescription('認証ログを表示します')
+    .setDescription('認証ログやIPログを表示します')
+    .addStringOption(option =>
+      option.setName('type')
+        .setDescription('取得するログの種類')
+        .setRequired(true)
+        .addChoices(
+          { name: '認証ログ', value: 'log' },
+          { name: 'IPリスト', value: 'ip' }
+        )
+    )
 ].map(cmd => cmd.toJSON());
 
 async function registerCommands() {
@@ -105,6 +115,69 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
   }
+  if (interaction.commandName === 'log') {
+  // 権限チェック（ManageMessagesが必要）
+  if (!interaction.member.permissions.has('ManageMessages')) {
+    return await interaction.reply({
+      content: '❌ このコマンドを実行する権限がありません。',
+      ephemeral: true
+    });
+  }
+
+  const type = interaction.options.getString('type');
+
+  try {
+    let result, csv;
+
+    if (type === 'log') {
+      // 認証ログ
+      result = await pool.query(
+        `SELECT id, discord_id, event_type, detail, created_at
+         FROM auth_logs
+         ORDER BY created_at DESC
+         LIMIT 20`
+      );
+
+      csv = `"id","discord_id","event_type","detail","created_at"\n` +
+        result.rows.map(r =>
+          `"${r.id}","${r.discord_id}","${r.event_type}","${r.detail || ''}","${new Date(r.created_at).toISOString()}"`
+        ).join('\n');
+
+    } else if (type === 'ip') {
+      // IPテーブル
+      result = await pool.query(
+        `SELECT id, discord_id, ip_hash, created_at
+         FROM user_ips
+         ORDER BY created_at DESC
+         LIMIT 20`
+      );
+
+      csv = `"id","discord_id","ip_hash","created_at"\n` +
+        result.rows.map(r =>
+          `"${r.id}","${r.discord_id}","${r.ip_hash}","${new Date(r.created_at).toISOString()}"`
+        ).join('\n');
+    }
+
+    if (!result || result.rowCount === 0) {
+      return await interaction.reply({
+        content: 'ログはまだありません。',
+        ephemeral: true
+      });
+    }
+
+    await interaction.reply({
+      content: `\`\`\`csv\n${csv}\n\`\`\``,
+      ephemeral: true
+    });
+  } catch (err) {
+    console.error('ログ取得エラー:', err);
+    await interaction.reply({
+      content: 'ログ取得中にエラーが発生しました。',
+      ephemeral: true
+    });
+  }
+}
+
 });
 
 client.login(DISCORD_BOT_TOKEN);
