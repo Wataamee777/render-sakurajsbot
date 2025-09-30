@@ -305,13 +305,24 @@ if (!tokenData.access_token) {
       [user.id, `認証成功 IP: ${ipHash}`]
     );
 
-    // ロール付与
-    const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
-    const member = await guild.members.fetch(user.id);
-    if (!member.roles.cache.has(DISCORD_ROLE_ID)) {
-      await member.roles.add(DISCORD_ROLE_ID);
-      console.log(`Role added to user ${user.id}`);
-    }
+// ロール付与
+const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
+const member = await guild.members.fetch(user.id);
+if (!member.roles.cache.has(DISCORD_ROLE_ID)) {
+  await member.roles.add(DISCORD_ROLE_ID);
+  console.log(`Role added to user ${user.id}`);
+
+  // 🎉 ようこそメッセージ送信
+  const ChatChannelId = process.env.DISCORD_CHAT_CHANNEL_ID; // 環境変数で指定（例：雑談チャンネルID）
+  const ChatChannel = guild.channels.cache.get(ChatChannelId);
+
+  if (ChatChannel && ChatChannel.isTextBased()) {
+    await ChatChannel.send({
+      content: `🎉 ようこそ <@${user.id}> さん！\n<@&1210409196714074122> たち～ \n みんな仲良くしてあげてね！`
+    });
+  }
+}
+
 
     // 完了画面
     res.send(`
