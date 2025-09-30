@@ -318,7 +318,7 @@ if (!member.roles.cache.has(DISCORD_ROLE_ID)) {
 
   if (ChatChannel) {
     try {
-      await ChatChannel.send(🎉 ようこそ <@${user.id}> さん！\n<@&1210409196714074122> たち～ \n みんな仲良くしてあげてね！);
+      await ChatChannel.send("🎉 ようこそ <@${user.id}> さん！\n<@&1210409196714074122> たち～ \n みんな仲良くしてあげてね！");
     } catch (err) {
     console.error("メッセージ送信エラー:", err);
     }
