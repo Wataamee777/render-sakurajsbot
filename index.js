@@ -120,6 +120,66 @@ app.get('/auth/', (req, res) => {
   `);
 });
 
+// ルート: bot稼働中 + iframeでGASステータス読み込み
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Bot稼働状況</title>
+      <style>
+        body {
+          font-family: 'Arial', sans-serif;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          background: #f0f2f5;
+        }
+        header {
+          width: 100%;
+          padding: 20px;
+          text-align: center;
+          background: #5865F2;
+          color: #fff;
+          font-size: 1.5rem;
+        }
+        main {
+          margin-top: 20px;
+          width: 90%;
+          max-width: 800px;
+        }
+        iframe {
+          width: 100%;
+          border: none;
+          border-radius: 8px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+      </style>
+    </head>
+    <body>
+      <header>Bot稼働中🚀</header>
+      <main>
+        <h2>ライブステータス</h2>
+        <iframe id="statusFrame" src="GASのWebAppURL" scrolling="no"></iframe>
+      </main>
+      <script>
+        // GAS側からpostMessageで高さを受け取る
+        const iframe = document.getElementById('statusFrame');
+        window.addEventListener('message', (e) => {
+          if (e.data.height) {
+            iframe.style.height = e.data.height + 'px';
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `);
+});
+
 // OAuthコールバック
 app.get('/auth/callback', async (req, res) => {
   const code = req.query.code;
