@@ -165,6 +165,8 @@ app.get('/', (req, res) => {
       <main>
         <h2>ライブステータス</h2>
         <iframe id="statusFrame" src="https://script.google.com/macros/s/AKfycbwbh9oEmOWhNN9k_t86JmpKJZizPD_Ty4nSQxhusI1dJluwruXZET62nPgNupWVp9_p0A/exec" scrolling="no"></iframe>
+        <h3>利用規約等</h3>
+        <button onclick="location.href='https://bot.sakurahp.f5.si/'">利用規約&プライバリシーポリシーを見る</button>
       </main>
       <script>
         // GAS側からpostMessageで高さを受け取る
