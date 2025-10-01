@@ -164,7 +164,7 @@ app.get('/', (req, res) => {
       <header>Bot稼働中🚀</header>
       <main>
         <h2>ライブステータス</h2>
-        <iframe id="statusFrame" src="GASのWebAppURL" scrolling="no"></iframe>
+        <iframe id="statusFrame" src="https://script.google.com/macros/s/AKfycbwbh9oEmOWhNN9k_t86JmpKJZizPD_Ty4nSQxhusI1dJluwruXZET62nPgNupWVp9_p0A/exec" scrolling="no"></iframe>
       </main>
       <script>
         // GAS側からpostMessageで高さを受け取る
