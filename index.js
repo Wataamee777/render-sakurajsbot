@@ -1,11 +1,18 @@
-// server.js
 import express from 'express';
 import bodyParser from 'body-parser';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 import {
   Client,
-  GatewayIntentBits
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  REST,
+  Routes,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  PermissionsBitField
 } from 'discord.js';
 import pkg from 'pg';
 const { Pool } = pkg;
@@ -105,7 +112,7 @@ app.get('/auth/', (req, res) => {
     <body>
       <div class="container">
         <h1>認証ページへようこそ</h1>
-        <p>Discordで認証してロールを取得しよう！</p>
+        <p>Discordで認証</p>
         <a class="button" href="https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify">Discordで認証する</a>
       </div>
     </body>
@@ -163,7 +170,7 @@ app.get('/auth/callback', async (req, res) => {
       INSERT INTO users(discord_id,username)
       VALUES($1,$2)
       ON CONFLICT (discord_id) DO UPDATE SET username=EXCLUDED.username
-    `,[user.id,`${user.username}#${user.discriminator}`]);
+    `,[user.id,`${user.username}`]);
 
     if (ipDup.rowCount===0){
       await pool.query(`INSERT INTO user_ips(discord_id,ip_hash) VALUES($1,$2)`,[user.id,ipHash]);
@@ -191,7 +198,7 @@ app.get('/auth/callback', async (req, res) => {
     try {
       const modChan = await guild.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
       if(modChan?.isTextBased()) {
-        await modChan.send(`📝 認証成功: <@${user.id}> (${user.username}#${user.discriminator}) IPハッシュ: \`${ipHash}\``);
+        await modChan.send(`📝 認証成功: <@${user.id}> (${user.username}) IPハッシュ: \`${ipHash}\``);
       }
     } catch(err){ console.error("モデログ送信失敗",err); }
 
@@ -213,7 +220,7 @@ app.get('/auth/callback', async (req, res) => {
       <body>
         <div class="container">
           <h1>認証完了🎉</h1>
-          <p><@${user.username}>さん、ようこそ！</p>
+          <p>${user.username} さん、ようこそ！</p>
           <p>認証が完了し、ロールを付与しました。</p>
         </div>
       </body>
