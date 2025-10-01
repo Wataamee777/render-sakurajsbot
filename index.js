@@ -1,17 +1,11 @@
+// server.js
 import express from 'express';
 import bodyParser from 'body-parser';
 import crypto from 'crypto';
+import fetch from 'node-fetch';
 import {
   Client,
-  GatewayIntentBits,
-  SlashCommandBuilder,
-  REST,
-  Routes,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  PermissionsBitField
+  GatewayIntentBits
 } from 'discord.js';
 import pkg from 'pg';
 const { Pool } = pkg;
@@ -22,6 +16,8 @@ const {
   DISCORD_CLIENT_SECRET,
   DISCORD_GUILD_ID,
   DISCORD_ROLE_ID,
+  DISCORD_CHAT_CHANNEL_ID, // 雑談
+  DISCORD_MOD_LOG_CHANNEL_ID, // モデ用
   NEON_DB_CONNECTION_STRING,
   VPN_API_KEY,
   REDIRECT_URI
@@ -44,165 +40,23 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-// IPをSHA256でハッシュ化
+// IPハッシュ
 function hashIP(ip) {
   return crypto.createHash('sha256').update(ip).digest('hex');
 }
 
-// VPNチェックAPI
+// VPNチェック
 async function checkVPN(ip) {
   try {
     const res = await fetch(`https://vpnapi.io/api/${ip}?key=${VPN_API_KEY}`);
     const data = await res.json();
     return data.security && (data.security.vpn || data.security.proxy || data.security.tor || data.security.relay);
   } catch {
-    return false; // チェック失敗時は弾かずに通す
+    return false;
   }
 }
 
-// スラッシュコマンド登録
-const commands = [
-  new SlashCommandBuilder()
-    .setName('auth')
-    .setDescription('認証ページの案内を表示します'),
-  new SlashCommandBuilder()
-    .setName('log')
-    .setDescription('認証ログやIPログを表示します')
-    .addStringOption(option =>
-      option.setName('type')
-        .setDescription('取得するログの種類')
-        .setRequired(true)
-        .addChoices(
-          { name: '認証ログ', value: 'log' },
-          { name: 'IPリスト', value: 'ip' }
-         ) 
-     )
-     .addIntegerOption(option =>
-       option.setName('range')
-         .setDescription('ページ番号 (1ページ=5件)')
-         .setRequired(false)
-     )
-].map(cmd => cmd.toJSON());
-
-async function registerCommands() {
-  const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
-  try {
-    await rest.put(
-      Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID),
-      { body: commands }
-    );
-    console.log('✅ コマンド登録完了');
-  } catch (e) {
-    console.error('コマンド登録エラー:', e);
-  }
-}
-
-client.once('ready', () => {
-  console.log(`Bot logged in as ${client.user.tag}`);
-  registerCommands();
-});
-
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-
-  if (interaction.commandName === 'auth') {
-    const embed = new EmbedBuilder()
-      .setTitle('Discord認証ページへ')
-      .setDescription('下のボタンから認証ページにアクセスしてね')
-      .setColor(0x5865F2);
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel('認証ページへ')
-        .setStyle(ButtonStyle.Link)
-        .setURL('https://sakurajsbot-auth.onrender.com/auth')
-    );
-
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
-  }
-  
-if (interaction.commandName === 'log') {
-  await interaction.deferReply({ ephemeral: false });
-
-  const type = interaction.options.getString('type');
-  const page = interaction.options.getInteger('range') || 1; // デフォルト1ページ目
-  const limit = 5;
-  const offset = (page - 1) * limit;
-
-  try {
-    let result;
-    if (type === 'log') {
-      result = await pool.query(
-        `SELECT id, discord_id, event_type, detail, created_at
-         FROM auth_logs
-         ORDER BY created_at DESC
-         LIMIT $1 OFFSET $2`,
-        [limit, offset]
-      );
-
-      if (result.rowCount === 0)
-        return await interaction.editReply({ content: 'そのページにはログがありません。' });
-
-      const description = result.rows.map(r => {
-        const unixTime = Math.floor(new Date(r.created_at).getTime() / 1000);
-        return `**ID:** ${r.id}\n` +
-               `👤 ユーザー: <@${r.discord_id}>\n` +
-               `📌 イベント: ${r.event_type}\n` +
-               `📝 詳細: ${r.detail || 'なし'}\n` +
-               `⏰ 日時: <t:${unixTime}:f>`;
-      }).join('\n────────────\n');
-
-      const embed = new EmbedBuilder()
-        .setTitle(`📜 認証ログ (ページ ${page})`)
-        .setDescription(description)
-        .setColor(0x5865F2);
-
-      await interaction.editReply({ embeds: [embed] });
-
-    } else if (type === 'ip') {
-      result = await pool.query(
-        `SELECT id, discord_id, ip_hash, created_at
-         FROM user_ips
-         ORDER BY created_at DESC
-         LIMIT $1 OFFSET $2`,
-        [limit, offset]
-      );
-
-      if (result.rowCount === 0)
-        return await interaction.editReply({ content: 'そのページにはIPログがありません。' });
-
-      const description = result.rows.map(r => {
-        const unixTime = Math.floor(new Date(r.created_at).getTime() / 1000);
-        return `**ID:** ${r.id}\n` +
-               `👤 ユーザー: <@${r.discord_id}>\n` +
-               `🌐 IPハッシュ: \`${r.ip_hash}\`\n` +
-               `⏰ 日時: <t:${unixTime}:f>`;
-      }).join('\n────────────\n');
-
-      const embed = new EmbedBuilder()
-        .setTitle(`🌐 IPログ (ページ ${page})`)
-        .setDescription(description)
-        .setColor(0x2ECC71);
-
-      await interaction.editReply({ embeds: [embed] });
-    }
-
-  } catch (err) {
-    console.error(err);
-    await interaction.editReply({ content: 'ログ取得中にエラーが発生しました。' });
-  }
-}
-});
-client.login(DISCORD_BOT_TOKEN);
-
-app.get('/auth/', (req, res) => {
-  res.send(`
-    <h1>認証ページへようこそ</h1>
-    <p><a href="https://discord.com/oauth2/authorize?client_id=1350015325055221770&redirect_uri=https%3A%2F%2Fsakurajsbot-auth.onrender.com%2Fauth%2Fcallback&response_type=code&scope=identify">Discordで認証する</a></p>
-  `);
-});
-
-// OAuthコールバック処理
+// IPグローバル判定
 function extractGlobalIP(ipString) {
   if (!ipString) return null;
   const ips = ipString.split(',').map(ip => ip.trim());
@@ -211,13 +65,12 @@ function extractGlobalIP(ipString) {
   }
   return null;
 }
-
 function isGlobalIP(ip) {
   if (!ip) return false;
   if (
     ip.startsWith('10.') ||
     ip.startsWith('192.168.') ||
-    ip.startsWith('172.16.') || // ざっくりOK
+    ip.startsWith('172.16.') ||
     ip === '127.0.0.1' ||
     ip === '::1' ||
     ip.startsWith('fc') ||
@@ -226,43 +79,67 @@ function isGlobalIP(ip) {
   return true;
 }
 
+client.once('ready', () => {
+  console.log(`Bot logged in as ${client.user.tag}`);
+});
+
+client.login(DISCORD_BOT_TOKEN);
+
+// 認証ページ
+app.get('/auth/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Discord認証</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; background:#36393F; color:#FFF; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+        h1 { color:#7289DA; }
+        a.button { display:inline-block; padding:15px 25px; margin-top:20px; font-size:18px; font-weight:bold; color:#FFF; background:#7289DA; border-radius:8px; text-decoration:none; transition:0.2s; }
+        a.button:hover { background:#5b6eae; }
+        .container { text-align:center; max-width:400px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>認証ページへようこそ</h1>
+        <p>Discordで認証してロールを取得しよう！</p>
+        <a class="button" href="https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify">Discordで認証する</a>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// OAuthコールバック
 app.get('/auth/callback', async (req, res) => {
   const code = req.query.code;
   const rawIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const ip = extractGlobalIP(rawIP);
 
-  if (!code) return res.status(400).send('認証コードがありません');
-  if (!ip) return res.status(400).send('グローバルIPが取得できません');
+  if (!code || !ip) return res.status(400).send('認証情報が不正です');
 
   const ipHash = hashIP(ip);
 
   try {
-    // Discord トークン取得（Basic認証方式）
-    const basicAuth = Buffer.from(
-      `${process.env.DISCORD_CLIENT_ID}:${process.env.DISCORD_CLIENT_SECRET}`
-    ).toString('base64');
-    
-const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Authorization': `Basic ${basicAuth}`
-  },
-  body: new URLSearchParams({
-    grant_type: 'authorization_code',
-    code: code,
-    redirect_uri: REDIRECT_URI
-  })
-});
+    // トークン取得
+    const basicAuth = Buffer.from(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`).toString('base64');
+    const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/x-www-form-urlencoded',
+        'Authorization':`Basic ${basicAuth}`
+      },
+      body: new URLSearchParams({ grant_type:'authorization_code', code, redirect_uri:REDIRECT_URI })
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) return res.status(400).send('トークン取得失敗');
 
-const tokenData = await tokenRes.json();
-if (!tokenData.access_token) {
-  return res.status(400).send(`トークン取得失敗: ${JSON.stringify(tokenData)}`);
-}
-    
     // ユーザー情報取得
     const userRes = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` }
+      headers:{ Authorization:`Bearer ${tokenData.access_token}` }
     });
     const user = await userRes.json();
     if (!user.id) return res.status(400).send('ユーザー情報取得失敗');
@@ -270,84 +147,84 @@ if (!tokenData.access_token) {
     // VPNチェック
     const isVpn = await checkVPN(ip);
     if (isVpn) {
-      await pool.query(
-        `INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1, $2, $3)`,
-        [user.id, 'vpn_detected', `IP: ${ip}`]
-      );
-      return res.status(403).send('VPNを検知しました。管理者に連絡してください。');
+      await pool.query(`INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1,'vpn_detected',$2)`,[user.id,`IP:${ip}`]);
+      return res.status(403).send('VPN検知。管理者に連絡してください。');
     }
 
     // IP重複チェック
-    const ipDup = await pool.query(`SELECT discord_id FROM user_ips WHERE ip_hash=$1`, [ipHash]);
-    if (ipDup.rowCount > 0 && ipDup.rows[0].discord_id !== user.id) {
-      await pool.query(
-        `INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1, $2, $3)`,
-        [user.id, 'sub_account_blocked', `IP重複検知 IP: ${ipDup}`]
-      );
-      return res.status(403).send('サブアカウントを検知しました。管理者に連絡してください。');
+    const ipDup = await pool.query(`SELECT discord_id FROM user_ips WHERE ip_hash=$1`,[ipHash]);
+    if (ipDup.rowCount>0 && ipDup.rows[0].discord_id!==user.id) {
+      await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'sub_account_blocked',$2)`,[user.id,`IP重複 IP:${ipHash}`]);
+      return res.status(403).send('サブアカウント検知。管理者に連絡してください。');
     }
 
-    // ユーザー登録/更新
+    // DB登録
     await pool.query(`
-      INSERT INTO users(discord_id, username)
-      VALUES ($1, $2)
+      INSERT INTO users(discord_id,username)
+      VALUES($1,$2)
       ON CONFLICT (discord_id) DO UPDATE SET username=EXCLUDED.username
-    `, [user.id, `${user.username}#${user.discriminator}`]);
+    `,[user.id,`${user.username}#${user.discriminator}`]);
 
-    // IP登録
-    if (ipDup.rowCount === 0) {
-      await pool.query(`INSERT INTO user_ips(discord_id, ip_hash) VALUES ($1, $2)`, [user.id, ipHash]);
+    if (ipDup.rowCount===0){
+      await pool.query(`INSERT INTO user_ips(discord_id,ip_hash) VALUES($1,$2)`,[user.id,ipHash]);
     }
 
-    // 認証ログ記録
-    await pool.query(
-      `INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1, 'auth_success', $2)`,
-      [user.id, `認証成功 IP: ${ipHash}`]
-    );
+    await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'auth_success',$2)`,[user.id,`認証成功 IP:${ipHash}`]);
 
-// ロール付与
-const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
-const member = await guild.members.fetch(user.id);
-if (!member.roles.cache.has(DISCORD_ROLE_ID)) {
-  await member.roles.add(DISCORD_ROLE_ID);
-  console.log(`Role added to user ${user.id}`);
+    // ロール付与＆チャンネル通知
+    const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
+    const member = await guild.members.fetch(user.id);
 
-  // 🎉 ようこそメッセージ送信
-  const ChatChannelId = process.env.DISCORD_CHAT_CHANNEL_ID; // 環境変数で指定（例：雑談チャンネルID）
-  const ChatChannel = guild.channels.cache.get(ChatChannelId);
+    if (!member.roles.cache.has(DISCORD_ROLE_ID)) {
+      await member.roles.add(DISCORD_ROLE_ID);
+    }
 
-  if (ChatChannel) {
+    // 雑談チャンネル
     try {
-      await ChatChannel.send("🎉 ようこそ <@${user.id}> さん！\n<@&1210409196714074122> たち～ \n みんな仲良くしてあげてね！");
-    } catch (err) {
-    console.error("メッセージ送信エラー:", err);
-    }
-  }
-}
+      const chatChan = await guild.channels.fetch(DISCORD_CHAT_CHANNEL_ID);
+      if(chatChan?.isTextBased()) {
+        await chatChan.send(`🎉 ようこそ <@${user.id}> さん！\n<@&1210409196714074122> たち～ みんな仲良くしてあげてね！`);
+      }
+    } catch(err){ console.error("雑談送信失敗",err); }
 
+    // モデ用ログ
+    try {
+      const modChan = await guild.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+      if(modChan?.isTextBased()) {
+        await modChan.send(`📝 認証成功: <@${user.id}> (${user.username}#${user.discriminator}) IPハッシュ: \`${ipHash}\``);
+      }
+    } catch(err){ console.error("モデログ送信失敗",err); }
 
     // 完了画面
     res.send(`
-      <h1>認証完了🎉</h1>
-      <p>${user.username}#${user.discriminator} さん、ようこそ！</p>
-      <p>認証が完了し、ロールを付与しました。</p>
+      <!DOCTYPE html>
+      <html lang="ja">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>認証完了</title>
+        <style>
+          body { font-family:'Segoe UI',sans-serif; background:#36393F; color:#FFF; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+          .container { text-align:center; background:#2F3136; padding:40px; border-radius:12px; box-shadow:0 0 20px rgba(0,0,0,0.5); }
+          h1 { color:#7289DA; }
+          p { font-size:18px; margin:10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>認証完了🎉</h1>
+          <p><@${user.username}>さん、ようこそ！</p>
+          <p>認証が完了し、ロールを付与しました。</p>
+        </div>
+      </body>
+      </html>
     `);
 
-  } catch (err) {
+  } catch(err) {
     console.error('認証エラー:', err);
-    await pool.query(
-      `INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1, 'auth_error', $2)`,
-      [null, err.message]
-    );
+    await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'auth_error',$2)`,[null, err.message]);
     res.status(500).send('サーバーエラーが発生しました。管理者に連絡してください。');
   }
 });
 
-// Hello World
-app.get('/', (req, res) => {
-  res.send('<h1>Hello World</h1><p>Bot稼働中です</p>');
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT,()=>console.log(`Server running on port ${PORT}`));
