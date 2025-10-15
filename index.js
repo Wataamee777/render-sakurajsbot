@@ -2,9 +2,10 @@ import { ShardingManager } from 'discord.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
+const totalShards = 2; // ここは環境やサーバー数に応じて数値にする
 const manager = new ShardingManager('./bot.js', {
   token: process.env.DISCORD_BOT_TOKEN,
-  totalShards: '5', // or 数字指定
+  totalShards: totalShards
 });
 
 manager.on('shardCreate', shard => {
