@@ -4,7 +4,7 @@ dotenv.config();
 
 const manager = new ShardingManager('./bot.js', {
   token: process.env.DISCORD_BOT_TOKEN,
-  totalShards: 'auto', // or 数字指定
+  totalShards: '5', // or 数字指定
 });
 
 manager.on('shardCreate', shard => {
