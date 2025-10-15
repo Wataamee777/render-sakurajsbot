@@ -148,7 +148,7 @@ export async function handleOAuthCallback({ code, ip }) {
   } catch (err) { console.error("モデログ送信失敗", err); }
 
   // HTML文字列を返す
-  return `
+    return `
     <!DOCTYPE html>
     <html lang="ja">
     <head>
@@ -158,4 +158,40 @@ export async function handleOAuthCallback({ code, ip }) {
       <style>
         body { font-family:'Segoe UI',sans-serif; background:#36393F; color:#FFF; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
         .container { text-align:center; background:#2F3136; padding:40px; border-radius:12px; box-shadow:0 0 20px rgba(0,0,0,0.5); }
-        h1
+        h1 { color:#7289DA; }
+        p { font-size:18px; margin:10px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>認証完了🎉</h1>
+        <p>${user.username} さん、ようこそ！</p>
+        <p>認証が完了し、ロールを付与しました。</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// --- Bot ログイン ---
+client.once('ready', () => {
+  console.log(`Bot logged in as ${client.user.tag}`);
+
+  const shardCount = client.shard ? client.shard.count : 1;
+  const ping = Math.round(client.ws.ping);
+
+  client.user.setPresence({
+    activities: [{ name: `Ping: ${ping}ms | Shards: ${shardCount}`, type: 0 }],
+    status: 'online'
+  });
+
+  setInterval(() => {
+    const pingNow = Math.round(client.ws.ping);
+    client.user.setPresence({
+      activities: [{ name: `Ping: ${pingNow}ms | Shards: ${shardCount}`, type: 0 }],
+      status: 'online'
+    });
+  }, 10000);
+});
+
+client.login(DISCORD_BOT_TOKEN);
