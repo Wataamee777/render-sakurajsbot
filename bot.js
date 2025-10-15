@@ -1,4 +1,3 @@
-import express from 'express';
 import bodyParser from 'body-parser';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
