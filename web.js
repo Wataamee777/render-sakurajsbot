@@ -1,11 +1,13 @@
 import express from 'express';
+import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+dotenv.config();
+
+import { handleOAuthCallback } from './bot.js';
 
 const app = express();
 app.use(bodyParser.json());
 const PORT = process.env.PORT || 3000;
-
-const shardId = process.env.SHARD_ID || process.env.pm_id || '0'; // pm2互換対策も兼ねる
-const isMaster = shardId === '0';
 
 // 認証ページ
 app.get('/auth/', (req, res) => {
@@ -96,4 +98,15 @@ app.get('/', (req, res) => {
     </html>
   `);
 });
+
+// OAuthコールバック
+app.get('/auth/callback', async (req, res) => {
+  const code = req.query.code;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  if (!code || !ip) return res.status(400).send('認証情報が不正です');
+
+  await handleOAuthCallback({ code, ip, res });
+});
+
+app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
 
