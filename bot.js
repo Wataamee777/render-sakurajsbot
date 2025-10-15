@@ -1,4 +1,3 @@
-import bodyParser from 'body-parser';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 import {
@@ -45,6 +44,11 @@ const isMaster = shardId === '0';
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
+
+export async function handleOAuthCallback({ code, ip }) {
+  const crypto = await import('crypto');
+  const fetch = await import('node-fetch');
+  const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
 
 // IPハッシュ
 function hashIP(ip) {
@@ -195,9 +199,8 @@ app.get('/auth/callback', async (req, res) => {
       }
     } catch(err){ console.error("モデログ送信失敗",err); }
 
-    // 完了画面
-    res.send(`
-      <!DOCTYPE html>
+  return
+     `<!DOCTYPE html>
       <html lang="ja">
       <head>
         <meta charset="UTF-8">
@@ -218,7 +221,7 @@ app.get('/auth/callback', async (req, res) => {
         </div>
       </body>
       </html>
-    `);
+    `;
 
   } catch(err) {
     console.error('認証エラー:', err);
