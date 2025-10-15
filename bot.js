@@ -12,7 +12,8 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  PermissionsBitField
+  PermissionsBitField,
+  ShardClientUtil
 } from 'discord.js';
 import pkg from 'pg';
 const { Pool } = pkg;
@@ -42,6 +43,8 @@ const pool = new Pool({
 const app = express();
 app.use(bodyParser.json());
 const PORT = process.env.PORT || 3000;
+
+const isMaster = !process.env.SHARD_ID || process.env.SHARD_ID === '0';
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
@@ -318,4 +321,8 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
-app.listen(PORT,()=>console.log(`Server running on port ${PORT}`));
+if (isMaster) {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+} else {
+  console.log(`Shard ${process.env.SHARD_ID} はWebサーバー起動なし`);
+}
