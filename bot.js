@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import fetch from 'node-fetch';
-import {
+import { 
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
@@ -12,7 +12,7 @@ import {
   ButtonStyle,
   PermissionsBitField,
   ShardClientUtil
-} from 'discord.js';
+       } from 'discord.js';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -22,8 +22,8 @@ const {
   DISCORD_CLIENT_SECRET,
   DISCORD_GUILD_ID,
   DISCORD_ROLE_ID,
-  DISCORD_CHAT_CHANNEL_ID, // 雑談
-  DISCORD_MOD_LOG_CHANNEL_ID, // モデ用
+  DISCORD_CHAT_CHANNEL_ID,
+  DISCORD_MOD_LOG_CHANNEL_ID,
   NEON_DB_CONNECTION_STRING,
   VPN_API_KEY,
   REDIRECT_URI
@@ -38,36 +38,16 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: true }
 });
 
-const shardId = process.env.SHARD_ID || process.env.pm_id || '0'; // pm2互換対策も兼ねる
-const isMaster = shardId === '0';
-
-const client = new Client({
+export const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-export async function handleOAuthCallback({ code, ip }) {
-  const crypto = await import('crypto');
-  const fetch = await import('node-fetch');
-  const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
-
-// IPハッシュ
-function hashIP(ip) {
+// --- IP関連ユーティリティ ---
+export function hashIP(ip) {
   return crypto.createHash('sha256').update(ip).digest('hex');
 }
 
-// VPNチェック
-async function checkVPN(ip) {
-  try {
-    const res = await fetch(`https://vpnapi.io/api/${ip}?key=${VPN_API_KEY}`);
-    const data = await res.json();
-    return data.security && (data.security.vpn || data.security.proxy || data.security.tor || data.security.relay);
-  } catch {
-    return false;
-  }
-}
-
-// IPグローバル判定
-function extractGlobalIP(ipString) {
+export function extractGlobalIP(ipString) {
   if (!ipString) return null;
   const ips = ipString.split(',').map(ip => ip.trim());
   for (const ip of ips) {
@@ -75,7 +55,8 @@ function extractGlobalIP(ipString) {
   }
   return null;
 }
-function isGlobalIP(ip) {
+
+export function isGlobalIP(ip) {
   if (!ip) return false;
   if (
     ip.startsWith('10.') ||
@@ -89,149 +70,92 @@ function isGlobalIP(ip) {
   return true;
 }
 
-client.once('ready', async () => {
-  console.log(`Bot logged in as ${client.user.tag}`);
+export async function checkVPN(ip) {
+  try {
+    const res = await fetch(`https://vpnapi.io/api/${ip}?key=${VPN_API_KEY}`);
+    const data = await res.json();
+    return data.security && (data.security.vpn || data.security.proxy || data.security.tor || data.security.relay);
+  } catch {
+    return false;
+  }
+}
 
-  // シャード数とPingをプレイ中に表示
-  const shardCount = client.shard ? client.shard.count : 1;
-  const ping = Math.round(client.ws.ping);
-
-  client.user.setPresence({
-    activities: [
-      { name: `Ping: ${ping}ms | Shards: ${shardCount}`, type: 0 } // type: 0 は "Playing"
-    ],
-    status: 'online'
-  });
-
-  // 60秒ごとに更新
-  setInterval(() => {
-    const pingNow = Math.round(client.ws.ping);
-    client.user.setPresence({
-      activities: [
-        { name: `Ping: ${pingNow}ms | Shards: ${shardCount}`, type: 0 }
-      ],
-      status: 'online'
-    });
-  }, 10000);
-});
-
-client.login(DISCORD_BOT_TOKEN);
-
-// OAuthコールバック
-app.get('/auth/callback', async (req, res) => {
-  const code = req.query.code;
-  const rawIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const ip = extractGlobalIP(rawIP);
-
-  if (!code || !ip) return res.status(400).send('認証情報が不正です');
+// --- OAuth コールバック処理 ---
+export async function handleOAuthCallback({ code, ip }) {
+  if (!code || !ip) throw new Error('認証情報が不正です');
 
   const ipHash = hashIP(ip);
 
-  try {
-    // トークン取得
-    const basicAuth = Buffer.from(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`).toString('base64');
-    const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type':'application/x-www-form-urlencoded',
-        'Authorization':`Basic ${basicAuth}`
-      },
-      body: new URLSearchParams({ grant_type:'authorization_code', code, redirect_uri:REDIRECT_URI })
-    });
-    const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) return res.status(400).send('トークン取得失敗');
+  // トークン取得
+  const basicAuth = Buffer.from(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`).toString('base64');
+  const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': `Basic ${basicAuth}` },
+    body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: REDIRECT_URI })
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) throw new Error('トークン取得失敗');
 
-    // ユーザー情報取得
-    const userRes = await fetch('https://discord.com/api/users/@me', {
-      headers:{ Authorization:`Bearer ${tokenData.access_token}` }
-    });
-    const user = await userRes.json();
-    if (!user.id) return res.status(400).send('ユーザー情報取得失敗');
+  // ユーザー情報取得
+  const userRes = await fetch('https://discord.com/api/users/@me', {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` }
+  });
+  const user = await userRes.json();
+  if (!user.id) throw new Error('ユーザー情報取得失敗');
 
-    // VPNチェック
-    const isVpn = await checkVPN(ip);
-    if (isVpn) {
-      await pool.query(`INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1,'vpn_detected',$2)`,[user.id,`IP:${ip}`]);
-      return res.status(403).send('VPN検知。管理者に連絡してください。');
-    }
-
-    // IP重複チェック
-    const ipDup = await pool.query(`SELECT discord_id FROM user_ips WHERE ip_hash=$1`,[ipHash]);
-    if (ipDup.rowCount>0 && ipDup.rows[0].discord_id!==user.id) {
-      await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'sub_account_blocked',$2)`,[user.id,`IP重複 IP:${ipHash}`]);
-      return res.status(403).send('サブアカウント検知。管理者に連絡してください。');
-    }
-
-    // DB登録
-    await pool.query(`
-      INSERT INTO users(discord_id,username)
-      VALUES($1,$2)
-      ON CONFLICT (discord_id) DO UPDATE SET username=EXCLUDED.username
-    `,[user.id,`${user.username}`]);
-
-    if (ipDup.rowCount===0){
-      await pool.query(`INSERT INTO user_ips(discord_id,ip_hash) VALUES($1,$2)`,[user.id,ipHash]);
-    }
-
-    await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'auth_success',$2)`,[user.id,`認証成功 IP:${ipHash}`]);
-
-    // ロール付与＆チャンネル通知
-    const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
-    const member = await guild.members.fetch(user.id);
-
-    if (!member.roles.cache.has(DISCORD_ROLE_ID)) {
-      await member.roles.add(DISCORD_ROLE_ID);
-    }
-
-    // 雑談チャンネル
-    try {
-      const chatChan = await guild.channels.fetch(DISCORD_CHAT_CHANNEL_ID);
-      if(chatChan?.isTextBased()) {
-        await chatChan.send(`🎉 ようこそ <@${user.id}> さん！\n<@&1210409196714074122> たち～ みんな仲良くしてあげてね！`);
-      }
-    } catch(err){ console.error("雑談送信失敗",err); }
-
-    // モデ用ログ
-    try {
-      const modChan = await guild.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
-      if(modChan?.isTextBased()) {
-        await modChan.send(`📝 認証成功: <@${user.id}> (${user.username}) IPハッシュ: \`${ipHash}\``);
-      }
-    } catch(err){ console.error("モデログ送信失敗",err); }
-
-  return
-     `<!DOCTYPE html>
-      <html lang="ja">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>認証完了</title>
-        <style>
-          body { font-family:'Segoe UI',sans-serif; background:#36393F; color:#FFF; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
-          .container { text-align:center; background:#2F3136; padding:40px; border-radius:12px; box-shadow:0 0 20px rgba(0,0,0,0.5); }
-          h1 { color:#7289DA; }
-          p { font-size:18px; margin:10px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>認証完了🎉</h1>
-          <p>${user.username} さん、ようこそ！</p>
-          <p>認証が完了し、ロールを付与しました。</p>
-        </div>
-      </body>
-      </html>
-    `;
-
-  } catch(err) {
-    console.error('認証エラー:', err);
-    await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'auth_error',$2)`,[null, err.message]);
-    res.status(500).send('サーバーエラーが発生しました。管理者に連絡してください。');
+  // VPNチェック
+  const isVpn = await checkVPN(ip);
+  if (isVpn) {
+    await pool.query(`INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1,'vpn_detected',$2)`, [user.id, `IP:${ip}`]);
+    throw new Error('VPN検知');
   }
-});
 
-if (isMaster) {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-} else {
-  console.log(`Shard ${process.env.SHARD_ID} はWebサーバー起動なし`);
-}
+  // IP重複チェック
+  const ipDup = await pool.query(`SELECT discord_id FROM user_ips WHERE ip_hash=$1`, [ipHash]);
+  if (ipDup.rowCount > 0 && ipDup.rows[0].discord_id !== user.id) {
+    await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'sub_account_blocked',$2)`, [user.id, `IP重複 IP:${ipHash}`]);
+    throw new Error('サブアカウント検知');
+  }
+
+  // DB登録
+  await pool.query(`
+    INSERT INTO users(discord_id, username)
+    VALUES($1,$2)
+    ON CONFLICT (discord_id) DO UPDATE SET username=EXCLUDED.username
+  `, [user.id, `${user.username}`]);
+
+  if (ipDup.rowCount === 0) {
+    await pool.query(`INSERT INTO user_ips(discord_id,ip_hash) VALUES($1,$2)`, [user.id, ipHash]);
+  }
+
+  await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'auth_success',$2)`, [user.id, `認証成功 IP:${ipHash}`]);
+
+  // ロール付与＆チャンネル通知
+  const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
+  const member = await guild.members.fetch(user.id);
+  if (!member.roles.cache.has(DISCORD_ROLE_ID)) await member.roles.add(DISCORD_ROLE_ID);
+
+  // 雑談チャンネル
+  try {
+    const chatChan = await guild.channels.fetch(DISCORD_CHAT_CHANNEL_ID);
+    if (chatChan?.isTextBased()) chatChan.send(`🎉 ようこそ <@${user.id}> さん！`);
+  } catch (err) { console.error("雑談送信失敗", err); }
+
+  // モデ用ログ
+  try {
+    const modChan = await guild.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+    if (modChan?.isTextBased()) modChan.send(`📝 認証成功: <@${user.id}> (${user.username}) IPハッシュ: \`${ipHash}\``);
+  } catch (err) { console.error("モデログ送信失敗", err); }
+
+  // HTML文字列を返す
+  return `
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>認証完了</title>
+      <style>
+        body { font-family:'Segoe UI',sans-serif; background:#36393F; color:#FFF; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+        .container { text-align:center; background:#2F3136; padding:40px; border-radius:12px; box-shadow:0 0 20px rgba(0,0,0,0.5); }
+        h1
