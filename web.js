@@ -30,7 +30,7 @@ app.get('/auth/', (req, res) => {
       <div class="container">
         <h1>認証ページへようこそ</h1>
         <p>Discordで認証</p>
-        <a class="button" href="https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify">Discordで認証する</a>
+        <a href="https://discord.com/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}&response_type=code&scope=identify">Discordで認証</a>
       </div>
     </body>
     </html>
@@ -99,14 +99,17 @@ app.get('/', (req, res) => {
   `);
 });
 
-// OAuthコールバック
+// コールバック
 app.get('/auth/callback', async (req, res) => {
   const code = req.query.code;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  if (!code || !ip) return res.status(400).send('認証情報が不正です');
-
-  await handleOAuthCallback({ code, ip, res });
+  try {
+    const html = await handleOAuthCallback({ code, ip });
+    res.send(html);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('認証エラー');
+  }
 });
 
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
-
