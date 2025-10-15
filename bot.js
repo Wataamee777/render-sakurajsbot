@@ -86,8 +86,30 @@ function isGlobalIP(ip) {
   return true;
 }
 
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
+
+  // シャード数とPingをプレイ中に表示
+  const shardCount = client.shard ? client.shard.count : 1;
+  const ping = Math.round(client.ws.ping);
+
+  client.user.setPresence({
+    activities: [
+      { name: `Ping: ${ping}ms | Shards: ${shardCount}`, type: 0 } // type: 0 は "Playing"
+    ],
+    status: 'online'
+  });
+
+  // 60秒ごとに更新
+  setInterval(() => {
+    const pingNow = Math.round(client.ws.ping);
+    client.user.setPresence({
+      activities: [
+        { name: `Ping: ${pingNow}ms | Shards: ${shardCount}`, type: 0 }
+      ],
+      status: 'online'
+    });
+  }, 10000);
 });
 
 client.login(DISCORD_BOT_TOKEN);
