@@ -231,8 +231,8 @@ client.on('interactionCreate', async interaction => {
 
   // /report
 if (commandName === 'report') {
-  await interaction.deferReply({ ephemeral: true }); // 処理中にする（1回目の応答）
-
+ await interaction.deferReply({ flags: 64 });
+  
   try {
     const userid = interaction.options.getString('userid');
     const reason = interaction.options.getString('reason');
