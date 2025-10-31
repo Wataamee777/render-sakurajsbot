@@ -248,7 +248,7 @@ if (commandName === 'report') {
       )
       .setTimestamp();
 
-    const logChannel = await client.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+    const logChannel = await client.channels.fetch(1208987840462200882);
     await logChannel.send({ embeds: [reportEmbed], files: file ? [file] : [] });
 
     await interaction.editReply('✅ 通報を送信しました。'); // ←これで結果を上書き
