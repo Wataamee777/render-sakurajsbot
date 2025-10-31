@@ -229,35 +229,46 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ embeds: [embed], components: [row] });
   }
 
-  // /report
 if (commandName === 'report') {
-  const userid = interaction.options.getString('userid');
-  const reason = interaction.options.getString('reason');
-  const file = interaction.options.getAttachment('file');
-
   try {
-    await interaction.deferReply({ flags: 64 }); // 非公開で応答予約
+    await interaction.deferReply({ flags: 64 }); // 👈 最初に1回だけ実行（非公開）
+
+    const userid = interaction.options.getString('userid');
+    const reason = interaction.options.getString('reason');
+    const file = interaction.options.getAttachment('file');
 
     const reportEmbed = new EmbedBuilder()
       .setTitle('🚨 ユーザー通報')
       .setColor(0xED4245)
       .addFields(
         { name: '通報者', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
-        { name: '対象ユーザー', value: userid, inline: true },
-        { name: '理由', value: reason || '未入力' }
+        { name: '対象ユーザー', value: `<@${userid}> (${userid})`, inline: true },
+        { name: '理由', value: reason }
       )
       .setTimestamp();
 
-    const channel = await client.channels.fetch(REPORT_CHANNEL_ID);
-    await channel.send({
-      embeds: [reportEmbed],
-      files: file ? [file] : []
-    });
+    // 送信先（通報ログチャンネル）
+    const reportChannel = interaction.client.channels.cache.get('1099098129338466385');
+    if (!reportChannel) {
+      await interaction.editReply('❌ エラー 管理者にお問い合わせください。エラーコード:404 not found channel');
+      return;
+    }
 
-    await interaction.editReply('✅ 通報が送信されました。');
+    // ファイル付きメッセージ送信
+    if (file) {
+      await reportChannel.send({ embeds: [reportEmbed], files: [file.url] });
+    } else {
+      await reportChannel.send({ embeds: [reportEmbed] });
+    }
+
+    await interaction.editReply('✅ 通報を送信しました！');
   } catch (err) {
     console.error(err);
-    await interaction.editReply('❌ 通報送信に失敗しました。');
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❌ 通報に失敗しました。', flags: 64 });
+    } else {
+      await interaction.editReply('❌ 通報に失敗しました。');
+    }
   }
 }
 });
