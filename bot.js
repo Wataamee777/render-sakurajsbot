@@ -231,7 +231,7 @@ client.on('interactionCreate', async interaction => {
 
 if (commandName === 'report') {
   try {
-    await interaction.deferReply({ flags: 64 }); // 👈 最初に1回だけ実行（非公開）
+    await interaction.deferReply({ ephemeral: true }); // ✅ flags→ephemeral
 
     const userid = interaction.options.getString('userid');
     const reason = interaction.options.getString('reason');
@@ -247,24 +247,22 @@ if (commandName === 'report') {
       )
       .setTimestamp();
 
-    // 送信先（通報ログチャンネル）
-let reportChannel;
-try {
-  reportChannel = await interaction.client.channels.fetch('1099098129338466385');
-} catch (err) {
-  console.error('チャンネル取得失敗:', err);
-}
+    // ✅ シャード対応 fetch方式
+    let reportChannel;
+    try {
+      reportChannel = await interaction.client.channels.fetch('1099098129338466385');
+    } catch (err) {
+      console.error('チャンネル取得失敗:', err);
+    }
 
-if (!reportChannel) {
-  await interaction.reply({
-    content: '❌ エラー: レポート送信先が見つかりません（404 not found channel）',
-    ephemeral: true,
-  });
-  return;
-}
-    // ファイル付きメッセージ送信
+    if (!reportChannel) {
+      await interaction.editReply('❌ エラー: 通報ログチャンネルが見つかりません（404 not found channel）');
+      return;
+    }
+
+    // ✅ ファイル送信対応
     if (file) {
-      await reportChannel.send({ embeds: [reportEmbed], files: [file.url] });
+      await reportChannel.send({ embeds: [reportEmbed], files: [{ attachment: file.url }] });
     } else {
       await reportChannel.send({ embeds: [reportEmbed] });
     }
@@ -273,13 +271,14 @@ if (!reportChannel) {
   } catch (err) {
     console.error(err);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❌ 通報に失敗しました。', flags: 64 });
+      await interaction.reply({ content: '❌ 通報に失敗しました。', ephemeral: true });
     } else {
       await interaction.editReply('❌ 通報に失敗しました。');
     }
   }
 }
 });
+
 // --- 起動処理 ---
 client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
