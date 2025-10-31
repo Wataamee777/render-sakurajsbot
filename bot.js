@@ -182,7 +182,7 @@ const commands = [
     .setName('report')
     .setDescription('ユーザーを通報します')
     .addUserOption(opt =>
-      opt.setName('user').setDescription('通報するユーザー').setRequired(true))
+      opt.setName('userid').setDescription('通報するユーザーid').setRequired(true))
     .addStringOption(opt =>
       opt.setName('reason').setDescription('通報理由').setRequired(true))
     .addAttachmentOption(opt =>
@@ -231,7 +231,7 @@ client.on('interactionCreate', async interaction => {
 
   // /report
   if (commandName === 'report') {
-    const user = interaction.options.getUser('user');
+    const userid = interaction.options.getString('userid');
     const reason = interaction.options.getString('reason');
     const file = interaction.options.getAttachment('file');
 
@@ -240,7 +240,7 @@ client.on('interactionCreate', async interaction => {
       .setColor(0xED4245)
       .addFields(
         { name: '通報者', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
-        { name: '対象ユーザー', value: `<@${user.id}> (${user.tag})`, inline: true },
+        { name: '対象ユーザー', value: `${user.id}`, inline: true },
         { name: '理由', value: reason }
       )
       .setTimestamp();
@@ -249,7 +249,7 @@ client.on('interactionCreate', async interaction => {
 
     try {
       const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
-      const modChan = await guild.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+      const modChan = await guild.channels.fetch(1208987840462200882);
       if (modChan?.isTextBased()) await modChan.send({ embeds: [reportEmbed] });
 
       await interaction.reply({ content: '✅ 通報を送信しました。モデレーターが確認します。', ephemeral: true });
