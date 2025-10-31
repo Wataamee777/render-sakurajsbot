@@ -230,7 +230,10 @@ client.on('interactionCreate', async interaction => {
   }
 
   // /report
-  if (commandName === 'report') {
+if (commandName === 'report') {
+  await interaction.deferReply({ ephemeral: true }); // 処理中にする（1回目の応答）
+
+  try {
     const userid = interaction.options.getString('userid');
     const reason = interaction.options.getString('reason');
     const file = interaction.options.getAttachment('file');
@@ -240,25 +243,20 @@ client.on('interactionCreate', async interaction => {
       .setColor(0xED4245)
       .addFields(
         { name: '通報者', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
-        { name: '対象ユーザー', value: `<@${userid}> (${userid})`, inline: true },
+        { name: '対象ユーザー', value: `<@${userid}>`, inline: true },
         { name: '理由', value: reason }
       )
       .setTimestamp();
 
-    if (file) reportEmbed.setImage(file.url);
+    const logChannel = await client.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+    await logChannel.send({ embeds: [reportEmbed], files: file ? [file] : [] });
 
-    try {
-      const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
-      const modChan = await guild.channels.fetch(1208987840462200882);
-      if (modChan?.isTextBased()) await modChan.send({ embeds: [reportEmbed] });
-
-      await interaction.reply({ content: '✅ 通報を送信しました。モデレーターが確認します。', ephemeral: true });
-    } catch (err) {
-      console.error('通報送信失敗:', err);
-      await interaction.reply({ content: '❌ 通報送信に失敗しました。', ephemeral: true });
-    }
+    await interaction.editReply('✅ 通報を送信しました。'); // ←これで結果を上書き
+  } catch (err) {
+    console.error(err);
+    await interaction.editReply('❌ 通報送信に失敗しました。'); // ←失敗時もここで上書き
   }
-});
+}
 
 // --- 起動処理 ---
 client.once('ready', async () => {
