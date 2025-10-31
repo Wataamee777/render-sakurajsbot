@@ -12,7 +12,7 @@ import {
   ButtonStyle,
   PermissionsBitField,
   ShardClientUtil
-       } from 'discord.js';
+} from 'discord.js';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -147,8 +147,7 @@ export async function handleOAuthCallback({ code, ip }) {
     if (modChan?.isTextBased()) modChan.send(`📝 認証成功: <@${user.id}> (${user.username}) IPハッシュ: \`${ipHash}\``);
   } catch (err) { console.error("モデログ送信失敗", err); }
 
-  // HTML文字列を返す
-    return `
+  return `
     <!DOCTYPE html>
     <html lang="ja">
     <head>
@@ -173,22 +172,110 @@ export async function handleOAuthCallback({ code, ip }) {
   `;
 }
 
-// --- Bot ログイン ---
-client.once('ready', () => {
+// --- コマンド登録 ---
+const commands = [
+  new SlashCommandBuilder()
+    .setName('auth')
+    .setDescription('認証用リンクを表示します')
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator), // 管理者のみ
+  new SlashCommandBuilder()
+    .setName('report')
+    .setDescription('ユーザーを通報します')
+    .addUserOption(opt =>
+      opt.setName('user').setDescription('通報するユーザー').setRequired(true))
+    .addStringOption(opt =>
+      opt.setName('reason').setDescription('通報理由').setRequired(true))
+    .addAttachmentOption(opt =>
+      opt.setName('file').setDescription('証拠画像（任意）'))
+].map(c => c.toJSON());
+
+// --- コマンド登録処理 ---
+const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
+(async () => {
+  try {
+    console.log('スラッシュコマンド登録中...');
+    await rest.put(
+      Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID),
+      { body: commands }
+    );
+    console.log('✅ コマンド登録完了');
+  } catch (err) {
+    console.error('❌ コマンド登録失敗:', err);
+  }
+})();
+
+// --- コマンド応答 ---
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+  const { commandName } = interaction;
+
+  // /auth
+  if (commandName === 'auth') {
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return interaction.reply({ content: '❌ 管理者のみ使用可能なコマンドです。', ephemeral: true });
+    }
+
+    const authUrl = `https://auth.sakurahp.f5.si/auth`;
+
+    const embed = new EmbedBuilder()
+      .setTitle('🔐 Discord認証パネル')
+      .setDescription('以下のボタンから認証を進めてください。\nVPN・複数アカウントは制限される場合があります。')
+      .setColor(0x5865F2);
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setLabel('認証サイトへ').setStyle(ButtonStyle.Link).setURL(authUrl)
+    );
+
+    await interaction.reply({ embeds: [embed], components: [row] });
+  }
+
+  // /report
+  if (commandName === 'report') {
+    const user = interaction.options.getUser('user');
+    const reason = interaction.options.getString('reason');
+    const file = interaction.options.getAttachment('file');
+
+    const reportEmbed = new EmbedBuilder()
+      .setTitle('🚨 ユーザー通報')
+      .setColor(0xED4245)
+      .addFields(
+        { name: '通報者', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
+        { name: '対象ユーザー', value: `<@${user.id}> (${user.tag})`, inline: true },
+        { name: '理由', value: reason }
+      )
+      .setTimestamp();
+
+    if (file) reportEmbed.setImage(file.url);
+
+    try {
+      const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
+      const modChan = await guild.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+      if (modChan?.isTextBased()) await modChan.send({ embeds: [reportEmbed] });
+
+      await interaction.reply({ content: '✅ 通報を送信しました。モデレーターが確認します。', ephemeral: true });
+    } catch (err) {
+      console.error('通報送信失敗:', err);
+      await interaction.reply({ content: '❌ 通報送信に失敗しました。', ephemeral: true });
+    }
+  }
+});
+
+// --- 起動処理 ---
+client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
 
-  const shardCount = client.shard ? client.shard.count : 1;
+  const shardInfo = client.shard ? `${client.shard.ids[0] + 1}/${client.shard.count}` : '1/1';
   const ping = Math.round(client.ws.ping);
 
   client.user.setPresence({
-    activities: [{ name: `Ping: ${ping}ms | Shards: ${shardCount}`, type: 0 }],
+    activities: [{ name: `Shard ${shardInfo} | Ping: ${ping}ms`, type: 0 }],
     status: 'online'
   });
 
   setInterval(() => {
     const pingNow = Math.round(client.ws.ping);
     client.user.setPresence({
-      activities: [{ name: `Ping: ${pingNow}ms | Shards: ${shardCount}`, type: 0 }],
+      activities: [{ name: `Shard ${shardInfo} | Ping: ${pingNow}ms`, type: 0 }],
       status: 'online'
     });
   }, 10000);
