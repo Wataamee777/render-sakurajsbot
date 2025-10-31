@@ -248,12 +248,20 @@ if (commandName === 'report') {
       .setTimestamp();
 
     // 送信先（通報ログチャンネル）
-    const reportChannel = interaction.client.channels.cache.get('1208987840462200882');
-    if (!reportChannel) {
-      await interaction.editReply('❌ エラー 管理者にお問い合わせください。エラーコード:404 not found channel');
-      return;
-    }
+let reportChannel;
+try {
+  reportChannel = await interaction.client.channels.fetch('1099098129338466385');
+} catch (err) {
+  console.error('チャンネル取得失敗:', err);
+}
 
+if (!reportChannel) {
+  await interaction.reply({
+    content: '❌ エラー: レポート送信先が見つかりません（404 not found channel）',
+    ephemeral: true,
+  });
+  return;
+}
     // ファイル付きメッセージ送信
     if (file) {
       await reportChannel.send({ embeds: [reportEmbed], files: [file.url] });
