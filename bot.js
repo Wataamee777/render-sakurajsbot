@@ -240,7 +240,7 @@ client.on('interactionCreate', async interaction => {
       .setColor(0xED4245)
       .addFields(
         { name: '通報者', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
-        { name: '対象ユーザー', value: `${user.id}`, inline: true },
+        { name: '対象ユーザー', value: `<@${userid}> (${userid})`, inline: true },
         { name: '理由', value: reason }
       )
       .setTimestamp();
