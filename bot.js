@@ -257,6 +257,7 @@ if (commandName === 'report') {
     await interaction.editReply('❌ 通報送信に失敗しました。'); // ←失敗時もここで上書き
   }
 }
+});
 
 // --- 起動処理 ---
 client.once('ready', async () => {
