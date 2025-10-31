@@ -231,34 +231,36 @@ client.on('interactionCreate', async interaction => {
 
   // /report
 if (commandName === 'report') {
- await interaction.deferReply({ flags: 64 });
-  
+  const userid = interaction.options.getString('userid');
+  const reason = interaction.options.getString('reason');
+  const file = interaction.options.getAttachment('file');
+
   try {
-    const userid = interaction.options.getString('userid');
-    const reason = interaction.options.getString('reason');
-    const file = interaction.options.getAttachment('file');
+    await interaction.deferReply({ flags: 64 }); // 非公開で応答予約
 
     const reportEmbed = new EmbedBuilder()
       .setTitle('🚨 ユーザー通報')
       .setColor(0xED4245)
       .addFields(
         { name: '通報者', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
-        { name: '対象ユーザー', value: `<@${userid}>`, inline: true },
-        { name: '理由', value: reason }
+        { name: '対象ユーザー', value: userid, inline: true },
+        { name: '理由', value: reason || '未入力' }
       )
       .setTimestamp();
 
-    const logChannel = await client.channels.fetch(1208987840462200882);
-    await logChannel.send({ embeds: [reportEmbed], files: file ? [file] : [] });
+    const channel = await client.channels.fetch(REPORT_CHANNEL_ID);
+    await channel.send({
+      embeds: [reportEmbed],
+      files: file ? [file] : []
+    });
 
-    await interaction.editReply('✅ 通報を送信しました。'); // ←これで結果を上書き
+    await interaction.editReply('✅ 通報が送信されました。');
   } catch (err) {
     console.error(err);
-    await interaction.editReply('❌ 通報送信に失敗しました。'); // ←失敗時もここで上書き
+    await interaction.editReply('❌ 通報送信に失敗しました。');
   }
 }
 });
-
 // --- 起動処理 ---
 client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
