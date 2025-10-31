@@ -248,7 +248,7 @@ if (commandName === 'report') {
       .setTimestamp();
 
     // 送信先（通報ログチャンネル）
-    const reportChannel = interaction.client.channels.cache.get('1099098129338466385');
+    const reportChannel = interaction.client.channels.cache.get('1208987840462200882');
     if (!reportChannel) {
       await interaction.editReply('❌ エラー 管理者にお問い合わせください。エラーコード:404 not found channel');
       return;
