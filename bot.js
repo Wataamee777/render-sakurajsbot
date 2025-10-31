@@ -181,7 +181,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName('report')
     .setDescription('ユーザーを通報します')
-    .addUserOption(opt =>
+    .addStringOption(opt =>
       opt.setName('userid').setDescription('通報するユーザーid').setRequired(true))
     .addStringOption(opt =>
       opt.setName('reason').setDescription('通報理由').setRequired(true))
