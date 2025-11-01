@@ -302,13 +302,12 @@ if (commandName === 'report') {
   }
 }
 
-  // --- /pin ---
 if (commandName === 'pin') {
   const msg = interaction.options.getString('msg');
   const channelId = interaction.channel.id;
 
-  const existing = await pool.get(`pin_${channelId}`);
-  if (existing) {
+  const existing = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id = $1', [channelId]);
+  if (existing.rowCount > 0) {
     await interaction.reply({ content: '⚠️ このチャンネルにはすでに固定メッセージがあります。まず /unpin で解除してください。', ephemeral: true });
     return;
   }
@@ -320,28 +319,32 @@ if (commandName === 'pin') {
     .setTimestamp();
 
   const sent = await interaction.channel.send({ embeds: [embed] });
-  await pool.set(`pin_${channelId}`, sent.id);
+
+  await pool.query(
+    'INSERT INTO pinned_messages (channel_id, message_id) VALUES ($1, $2)',
+    [channelId, sent.id]
+  );
 
   await interaction.reply({ content: '📌 メッセージを固定しました！', ephemeral: true });
-}
 
-// --- /unpin ---
+}
 if (commandName === 'unpin') {
   const channelId = interaction.channel.id;
-  const pinnedMsgId = await pool.get(`pin_${channelId}`);
 
-  if (!pinnedMsgId) {
+  const result = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id = $1', [channelId]);
+  if (result.rowCount === 0) {
     await interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません。', ephemeral: true });
     return;
   }
 
+  const pinnedMsgId = result.rows[0].message_id;
   const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
   if (msg) await msg.delete().catch(() => {});
 
-  await pool.delete(`pin_${channelId}`);
+  await pool.query('DELETE FROM pinned_messages WHERE channel_id = $1', [channelId]);
+
   await interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', ephemeral: true });
 }
-
 });
 
 // --- 起動処理 ---
