@@ -272,6 +272,45 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+
+  const channelId = message.channel.id;
+
+  // シャード0だけ処理（マルチシャード対応）
+  if (client.shard && client.shard.ids[0] !== 0) return;
+
+  // DBから固定メッセージ情報取得
+  const res = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channelId]);
+  if (res.rowCount === 0) return;
+
+  const pinData = res.rows[0];
+
+  try {
+    // 既存メッセージ削除
+    const oldMsg = await message.channel.messages.fetch(pinData.message_id).catch(() => null);
+    if (oldMsg) await oldMsg.delete();
+
+    // Embed作成
+    const embed = new EmbedBuilder()
+      .setDescription(pinData.content)
+      .setColor(0x00AE86)
+      .setFooter({ text: `📌 投稿者: ${pinData.author_name || '不明'}` })
+      .setTimestamp();
+
+    // メッセージ送信
+    const sent = await message.channel.send({ embeds: [embed] });
+
+    // DB更新
+    await pool.query(
+      'UPDATE pinned_messages SET message_id = $1, updated_at = NOW() WHERE channel_id = $2',
+      [sent.id, channelId]
+    );
+  } catch (err) {
+    console.error('固定メッセージ更新エラー:', err);
+  }
+});
+
 // --- 起動 ---
 client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
