@@ -302,41 +302,45 @@ if (commandName === 'report') {
   }
 }
 
-// --- /pin コマンド ---
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isCommand()) return;
-  const { commandName } = interaction;
+// 📌 /pin
+if (commandName === 'pin') {
+  const msg = interaction.options.getString('msg');
+  const channel = interaction.channel;
 
-  // 📌 /pin
-  if (commandName === 'pin') {
-    const msg = interaction.options.getString('msg');
-    const channel = interaction.channel;
+  await interaction.deferReply({ ephemeral: true });
 
-    await interaction.deferReply({ ephemeral: true });
-
-    // 既に登録済みなら削除して上書き
-    const exist = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channel.id]);
-    if (exist.rowCount > 0) {
-      const oldMsg = await channel.messages.fetch(exist.rows[0].message_id).catch(() => null);
-      if (oldMsg) await oldMsg.delete().catch(() => {});
-      await pool.query('DELETE FROM pinned_messages WHERE channel_id = $1', [channel.id]);
-    }
-
-    const embed = new EmbedBuilder()
-      .setDescription(msg)
-      .setColor(0x00AE86)
-      .setFooter({ text: `📌 投稿者: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
-      .setTimestamp();
-
-    const sent = await channel.send({ embeds: [embed] });
-
-    await pool.query('INSERT INTO pinned_messages (channel_id, message_id, content) VALUES ($1, $2, $3)', [
-      channel.id, sent.id, msg
-    ]);
-
-    await interaction.editReply('✅ 固定メッセージを設定しました！');
+  // 既に登録済みなら削除して上書き
+  const exist = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channel.id]);
+  if (exist.rowCount > 0) {
+    const oldMsg = await channel.messages.fetch(exist.rows[0].message_id).catch(() => null);
+    if (oldMsg) await oldMsg.delete().catch(() => {});
+    await pool.query('DELETE FROM pinned_messages WHERE channel_id = $1', [channel.id]);
   }
-  
+
+  const embed = new EmbedBuilder()
+    .setDescription(msg)
+    .setColor(0x00AE86)
+    .setFooter({ 
+      text: `📌 投稿者: ${interaction.user.tag}`, 
+      iconURL: interaction.user.displayAvatarURL() 
+    })
+    .setTimestamp();
+
+  const sent = await channel.send({ embeds: [embed] });
+
+  // author_id を追加保存（テーブルにある場合用）
+  await pool.query(`
+    INSERT INTO pinned_messages (channel_id, message_id, content, author_id)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (channel_id)
+    DO UPDATE SET message_id = EXCLUDED.message_id, content = EXCLUDED.content, author_id = EXCLUDED.author_id;
+  `, [channel.id, sent.id, msg, interaction.user.id]);
+
+  await interaction.editReply('✅ 固定メッセージを設定しました！');
+}
+
+
+// 🔓 /unpin
 if (commandName === 'unpin') {
   const channelId = interaction.channel.id;
 
