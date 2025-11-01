@@ -397,7 +397,7 @@ client.on('messageCreate', async message => {
 client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
 
-  const shardInfo = client.shard ? `${client.shard.ids[0] + 1}/${client.shard.count}` : '1/1';
+  const shardInfo = client.shard ? `${client.shard.ids[0] + 1}/2` : '1/2';
   const ping = Math.round(client.ws.ping);
 
   client.user.setPresence({
