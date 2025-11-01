@@ -176,17 +176,33 @@ export async function handleOAuthCallback({ code, ip }) {
 const commands = [
   new SlashCommandBuilder()
     .setName('auth')
-    .setDescription('認証用リンクを表示します')
+    .setDescription('認証用 adminonly')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator), // 管理者のみ
+
   new SlashCommandBuilder()
     .setName('report')
     .setDescription('ユーザーを通報します')
     .addStringOption(opt =>
-      opt.setName('userid').setDescription('通報するユーザーid').setRequired(true))
+      opt.setName('userid').setDescription('通報するユーザーID').setRequired(true))
     .addStringOption(opt =>
       opt.setName('reason').setDescription('通報理由').setRequired(true))
     .addAttachmentOption(opt =>
-      opt.setName('file').setDescription('証拠画像（任意）'))
+      opt.setName('file').setDescription('証拠画像（任意）')),
+
+  // 📌 /pinコマンド
+  new SlashCommandBuilder()
+    .setName('pin')
+    .setDescription('このチャンネルにメッセージを固定します')
+    .addStringOption(opt =>
+      opt.setName('msg')
+        .setDescription('固定する内容')
+        .setRequired(true)),
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator), // 管理者のみ
+  // 🔓 /unpinコマンド
+  new SlashCommandBuilder()
+    .setName('unpin')
+    .setDescription('このチャンネルの固定メッセージを解除します')
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator), // 管理者のみ
 ].map(c => c.toJSON());
 
 // --- コマンド登録処理 ---
@@ -277,6 +293,47 @@ if (commandName === 'report') {
     }
   }
 }
+
+  // --- /pin ---
+if (commandName === 'pin') {
+  const msg = interaction.options.getString('msg');
+  const channelId = interaction.channel.id;
+
+  const existing = await db.get(`pin_${channelId}`);
+  if (existing) {
+    await interaction.reply({ content: '⚠️ このチャンネルにはすでに固定メッセージがあります。まず /unpin で解除してください。', ephemeral: true });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setDescription(msg)
+    .setColor(0x00AE86)
+    .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
+    .setTimestamp();
+
+  const sent = await interaction.channel.send({ embeds: [embed] });
+  await db.set(`pin_${channelId}`, sent.id);
+
+  await interaction.reply({ content: '📌 メッセージを固定しました！', ephemeral: true });
+}
+
+// --- /unpin ---
+if (commandName === 'unpin') {
+  const channelId = interaction.channel.id;
+  const pinnedMsgId = await db.get(`pin_${channelId}`);
+
+  if (!pinnedMsgId) {
+    await interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません。', ephemeral: true });
+    return;
+  }
+
+  const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
+  if (msg) await msg.delete().catch(() => {});
+
+  await db.delete(`pin_${channelId}`);
+  await interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', ephemeral: true });
+}
+
 });
 
 // --- 起動処理 ---
