@@ -368,30 +368,29 @@ if (commandName === 'unpin') {
 });
   
 client.on('messageCreate', async message => {
-  if (message.author.bot) return; // Botは無視
-  const channelId = message.channel.id;
+  if (message.author.bot) return;
+  console.log('messageCreate:', message.content);
 
-  // DBから固定メッセージ取得
+  const channelId = message.channel.id;
   const result = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channelId]);
-  if (result.rowCount === 0) return; // 固定メッセージなし
+  if (result.rowCount === 0) return;
 
   const pinData = result.rows[0];
+  console.log('pinData found:', pinData);
 
-  // 既存メッセージ削除
-  const oldMsg = await message.channel.messages.fetch(pinData.message_id).catch(() => null);
-  if (oldMsg) await oldMsg.delete().catch(() => {});
+  const oldMsg = await message.channel.messages.fetch(pinData.message_id).catch(e => { console.error('fetch old msg failed', e); return null; });
+  if (oldMsg) await oldMsg.delete().catch(e => console.error('delete old msg failed', e));
 
-  // 再送信
   const embed = new EmbedBuilder()
     .setDescription(pinData.content)
     .setColor(0x00AE86)
     .setFooter({ text: `📌 投稿者: ${pinData.author_id}` })
     .setTimestamp();
 
-  const sent = await message.channel.send({ embeds: [embed] });
-
-  // DB更新
-  await pool.query('UPDATE pinned_messages SET message_id = $1, updated_at = NOW() WHERE channel_id = $2', [sent.id, channelId]);
+  const sent = await message.channel.send({ embeds: [embed] }).catch(e => console.error('send embed failed', e));
+  if (sent) {
+    await pool.query('UPDATE pinned_messages SET message_id = $1, updated_at = NOW() WHERE channel_id = $2', [sent.id, channelId]);
+  }
 });
 
 // --- 起動処理 ---
