@@ -369,11 +369,12 @@ if (commandName === 'unpin') {
   
 client.on('messageCreate', async message => {
   if (message.author.bot) return; // Botは無視
+
   const channelId = message.channel.id;
 
-  // DBから固定メッセージ取得
+  // 固定メッセージがこのチャンネルにあるか確認
   const result = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channelId]);
-  if (result.rowCount === 0) return;
+  if (result.rowCount === 0) return; // このチャンネルは対象外
 
   const pinData = result.rows[0];
 
@@ -386,12 +387,11 @@ client.on('messageCreate', async message => {
     console.log('既存固定メッセージは見つからなかったか削除できませんでした');
   }
 
-  // 再送信
-  let authorName = pinData.author_name || '不明なユーザー'; // author_name をDBに保存しておくと便利
+  // 再送信（embed footer に名前表示）
   const embed = new EmbedBuilder()
     .setDescription(pinData.content)
     .setColor(0x00AE86)
-    .setFooter({ text: `📌 投稿者: ${authorName}` })
+    .setFooter({ text: `📌 投稿者: ${pinData.author_name || '不明'}` })
     .setTimestamp();
 
   const sent = await message.channel.send({ embeds: [embed] });
