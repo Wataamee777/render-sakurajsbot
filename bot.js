@@ -250,7 +250,7 @@ if (commandName === 'report') {
     // ✅ シャード対応 fetch方式
     let reportChannel;
     try {
-      reportChannel = await interaction.client.channels.fetch('1099098129338466385');
+      reportChannel = await interaction.client.channels.fetch('1208987840462200882');
     } catch (err) {
       console.error('チャンネル取得失敗:', err);
     }
