@@ -361,28 +361,30 @@ if (commandName === 'unpin') {
 });
   
 client.on('messageCreate', async message => {
-  if (message.author.bot) return;
-
+  if (message.author.bot) return; // Botは無視
   const channelId = message.channel.id;
-  const result = await pool.query('SELECT message_id, content FROM pinned_messages WHERE channel_id = $1', [channelId]);
-  if (result.rowCount === 0) return;
 
-  const { message_id, content } = result.rows[0];
+  // DBから固定メッセージ取得
+  const result = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channelId]);
+  if (result.rowCount === 0) return; // 固定メッセージなし
 
-  // 古い固定メッセージを削除
-  const oldMsg = await message.channel.messages.fetch(message_id).catch(() => null);
+  const pinData = result.rows[0];
+
+  // 既存メッセージ削除
+  const oldMsg = await message.channel.messages.fetch(pinData.message_id).catch(() => null);
   if (oldMsg) await oldMsg.delete().catch(() => {});
 
-  // 再送信（embed）
+  // 再送信
   const embed = new EmbedBuilder()
-    .setDescription(content)
+    .setDescription(pinData.content)
     .setColor(0x00AE86)
-    .setFooter({ text: '📌メッセージを固定中' })
+    .setFooter({ text: `📌 投稿者: ${pinData.author_id}` })
     .setTimestamp();
 
   const sent = await message.channel.send({ embeds: [embed] });
 
-  await pool.query('UPDATE pinned_messages SET message_id = $1 WHERE channel_id = $2', [sent.id, channelId]);
+  // DB更新
+  await pool.query('UPDATE pinned_messages SET message_id = $1, updated_at = NOW() WHERE channel_id = $2', [sent.id, channelId]);
 });
 
 // --- 起動処理 ---
