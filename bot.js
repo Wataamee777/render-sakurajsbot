@@ -10,8 +10,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  PermissionsBitField,
-  ShardClientUtil
+  PermissionsBitField
 } from 'discord.js';
 import pkg from 'pg';
 const { Pool } = pkg;
@@ -33,21 +32,18 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID || !DISCORD_RO
   throw new Error('環境変数が足りてないよ！');
 }
 
+// --- PostgreSQL Pool ---
 const pool = new Pool({
   connectionString: NEON_DB_CONNECTION_STRING,
   ssl: { rejectUnauthorized: true }
 });
 
+// --- Discord Client ---
 export const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-// --- IP関連ユーティリティ ---
+// --- IP ユーティリティ ---
 export function hashIP(ip) {
   return crypto.createHash('sha256').update(ip).digest('hex');
 }
@@ -55,9 +51,7 @@ export function hashIP(ip) {
 export function extractGlobalIP(ipString) {
   if (!ipString) return null;
   const ips = ipString.split(',').map(ip => ip.trim());
-  for (const ip of ips) {
-    if (isGlobalIP(ip)) return ip;
-  }
+  for (const ip of ips) if (isGlobalIP(ip)) return ip;
   return null;
 }
 
@@ -88,10 +82,9 @@ export async function checkVPN(ip) {
 // --- OAuth コールバック処理 ---
 export async function handleOAuthCallback({ code, ip }) {
   if (!code || !ip) throw new Error('認証情報が不正です');
-
   const ipHash = hashIP(ip);
 
-  // トークン取得
+  // --- トークン取得 ---
   const basicAuth = Buffer.from(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`).toString('base64');
   const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
     method: 'POST',
@@ -101,33 +94,33 @@ export async function handleOAuthCallback({ code, ip }) {
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) throw new Error('トークン取得失敗');
 
-  // ユーザー情報取得
+  // --- ユーザー情報取得 ---
   const userRes = await fetch('https://discord.com/api/users/@me', {
     headers: { Authorization: `Bearer ${tokenData.access_token}` }
   });
   const user = await userRes.json();
   if (!user.id) throw new Error('ユーザー情報取得失敗');
 
-  // VPNチェック
+  // --- VPN チェック ---
   const isVpn = await checkVPN(ip);
   if (isVpn) {
     await pool.query(`INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1,'vpn_detected',$2)`, [user.id, `IP:${ip}`]);
     throw new Error('VPN検知');
   }
 
-  // IP重複チェック
+  // --- IP 重複チェック ---
   const ipDup = await pool.query(`SELECT discord_id FROM user_ips WHERE ip_hash=$1`, [ipHash]);
   if (ipDup.rowCount > 0 && ipDup.rows[0].discord_id !== user.id) {
     await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'sub_account_blocked',$2)`, [user.id, `IP重複 IP:${ipHash}`]);
     throw new Error('サブアカウント検知');
   }
 
-  // DB登録
+  // --- DB 登録 ---
   await pool.query(`
     INSERT INTO users(discord_id, username)
     VALUES($1,$2)
     ON CONFLICT (discord_id) DO UPDATE SET username=EXCLUDED.username
-  `, [user.id, `${user.username}`]);
+  `, [user.id, user.username]);
 
   if (ipDup.rowCount === 0) {
     await pool.query(`INSERT INTO user_ips(discord_id,ip_hash) VALUES($1,$2)`, [user.id, ipHash]);
@@ -135,103 +128,72 @@ export async function handleOAuthCallback({ code, ip }) {
 
   await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'auth_success',$2)`, [user.id, `認証成功 IP:${ipHash}`]);
 
-  // ロール付与＆チャンネル通知
+  // --- ロール付与 & チャンネル通知 ---
   const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
   const member = await guild.members.fetch(user.id);
   if (!member.roles.cache.has(DISCORD_ROLE_ID)) await member.roles.add(DISCORD_ROLE_ID);
 
-  // 雑談チャンネル
   try {
     const chatChan = await guild.channels.fetch(DISCORD_CHAT_CHANNEL_ID);
     if (chatChan?.isTextBased()) chatChan.send(`🎉 ようこそ <@${user.id}> さん！`);
-  } catch (err) { console.error("雑談送信失敗", err); }
+  } catch { /* 無視 */ }
 
-  // モデ用ログ
   try {
     const modChan = await guild.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
     if (modChan?.isTextBased()) modChan.send(`📝 認証成功: <@${user.id}> (${user.username}) IPハッシュ: \`${ipHash}\``);
-  } catch (err) { console.error("モデログ送信失敗", err); }
+  } catch { /* 無視 */ }
 
-  return `
-    <!DOCTYPE html>
-    <html lang="ja">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>認証完了</title>
-      <style>
-        body { font-family:'Segoe UI',sans-serif; background:#36393F; color:#FFF; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
-        .container { text-align:center; background:#2F3136; padding:40px; border-radius:12px; box-shadow:0 0 20px rgba(0,0,0,0.5); }
-        h1 { color:#7289DA; }
-        p { font-size:18px; margin:10px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>認証完了🎉</h1>
-        <p>${user.username} さん、ようこそ！</p>
-        <p>認証が完了し、ロールを付与しました。</p>
-      </div>
-    </body>
-    </html>
-  `;
+  return `<h1>認証完了 🎉 ${user.username} さん</h1>`;
 }
 
-// --- コマンド登録 ---
+// --- スラッシュコマンド ---
 const commands = [
-  // 🔐 /auth
   new SlashCommandBuilder()
     .setName('auth')
     .setDescription('認証用リンクを表示します')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
-  // 🚨 /report
   new SlashCommandBuilder()
     .setName('report')
     .setDescription('ユーザーを通報します')
-    .addStringOption(opt =>
-      opt.setName('userid')
-        .setDescription('通報するユーザーID')
-        .setRequired(true))
-    .addStringOption(opt =>
-      opt.setName('reason')
-        .setDescription('通報理由')
-        .setRequired(true))
-    .addAttachmentOption(opt =>
-      opt.setName('file')
-        .setDescription('証拠画像（任意）')),
+    .addStringOption(opt => opt.setName('userid').setDescription('通報するユーザーID').setRequired(true))
+    .addStringOption(opt => opt.setName('reason').setDescription('通報理由').setRequired(true))
+    .addAttachmentOption(opt => opt.setName('file').setDescription('証拠画像（任意）')),
 
-  // 📌 /pin
   new SlashCommandBuilder()
     .setName('pin')
-    .setDescription('このチャンネルにメッセージを固定します')
-    .addStringOption(opt =>
-      opt.setName('msg')
-        .setDescription('固定する内容')
-        .setRequired(true))
+    .setDescription('チャンネルにメッセージを固定します')
+    .addStringOption(opt => opt.setName('msg').setDescription('固定する内容').setRequired(true))
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
-  // 🔓 /unpin
   new SlashCommandBuilder()
     .setName('unpin')
-    .setDescription('このチャンネルの固定メッセージを解除します')
+    .setDescription('チャンネルの固定メッセージを解除します')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
 ].map(c => c.toJSON());
 
-// --- コマンド登録処理 ---
 const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
+
 (async () => {
   try {
     console.log('スラッシュコマンド登録中...');
-    await rest.put(
-      Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID),
-      { body: commands }
-    );
+    await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID), { body: commands });
     console.log('✅ コマンド登録完了');
   } catch (err) {
     console.error('❌ コマンド登録失敗:', err);
   }
 })();
+
+// --- /pin / /unpin の DB テーブル ---
+async function ensurePinTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pinned_messages (
+      channel_id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL
+    );
+  `);
+}
+ensurePinTable();
 
 // --- コマンド応答 ---
 client.on('interactionCreate', async interaction => {
@@ -241,27 +203,17 @@ client.on('interactionCreate', async interaction => {
   // /auth
   if (commandName === 'auth') {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return interaction.reply({ content: '❌ 管理者のみ使用可能なコマンドです。', ephemeral: true });
+      return interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
     }
-
     const authUrl = `https://bot.sakurahp.f5.si/auth`;
-
-    const embed = new EmbedBuilder()
-      .setTitle('🔐 Discord認証パネル')
-      .setDescription('以下のボタンから認証を進めてください。\nVPN・複数アカウントは制限される場合があります。')
-      .setColor(0x5865F2);
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setLabel('認証サイトへ').setStyle(ButtonStyle.Link).setURL(authUrl)
-    );
-
-    await interaction.reply({ embeds: [embed], components: [row] });
+    const embed = new EmbedBuilder().setTitle('🔐 認証パネル').setDescription('以下のボタンから認証を進めてください。').setColor(0x5865F2);
+    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('認証サイトへ').setStyle(ButtonStyle.Link).setURL(authUrl));
+    return interaction.reply({ embeds: [embed], components: [row], flags: 64 });
   }
 
-if (commandName === 'report') {
-  try {
-    await interaction.deferReply({ ephemeral: true }); // ✅ flags→ephemeral
-
+  // /report
+  if (commandName === 'report') {
+    await interaction.deferReply({ flags: 64 });
     const userid = interaction.options.getString('userid');
     const reason = interaction.options.getString('reason');
     const file = interaction.options.getAttachment('file');
@@ -276,135 +228,54 @@ if (commandName === 'report') {
       )
       .setTimestamp();
 
-    // ✅ シャード対応 fetch方式
-    let reportChannel;
-    try {
-      reportChannel = await interaction.client.channels.fetch('1208987840462200882');
-    } catch (err) {
-      console.error('チャンネル取得失敗:', err);
-    }
+    const reportChannel = await client.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+    if (!reportChannel?.isTextBased()) return interaction.editReply('❌ 通報チャンネルが見つかりません');
 
-    if (!reportChannel) {
-      await interaction.editReply('❌ エラー: 通報ログチャンネルが見つかりません（404 not found channel）');
-      return;
-    }
+    if (file) await reportChannel.send({ embeds: [reportEmbed], files: [{ attachment: file.url }] });
+    else await reportChannel.send({ embeds: [reportEmbed] });
 
-    // ✅ ファイル送信対応
-    if (file) {
-      await reportChannel.send({ embeds: [reportEmbed], files: [{ attachment: file.url }] });
-    } else {
-      await reportChannel.send({ embeds: [reportEmbed] });
-    }
-
-    await interaction.editReply('✅ 通報を送信しました！');
-  } catch (err) {
-    console.error(err);
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❌ 通報に失敗しました。', ephemeral: true });
-    } else {
-      await interaction.editReply('❌ 通報に失敗しました。');
-    }
-  }
-}
-
-// 📌 /pin
-if (commandName === 'pin') {
-  const msg = interaction.options.getString('msg');
-  const channel = interaction.channel;
-
-  await interaction.deferReply({ ephemeral: true });
-
-  // 既に登録済みなら削除して上書き
-  const exist = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channel.id]);
-  if (exist.rowCount > 0) {
-    const oldMsg = await channel.messages.fetch(exist.rows[0].message_id).catch(() => null);
-    if (oldMsg) await oldMsg.delete().catch(() => {});
-    await pool.query('DELETE FROM pinned_messages WHERE channel_id = $1', [channel.id]);
+    return interaction.editReply('✅ 通報を送信しました！');
   }
 
-  const embed = new EmbedBuilder()
-    .setDescription(msg)
-    .setColor(0x00AE86)
-    .setFooter({ 
-      text: `📌 投稿者: ${interaction.user.tag}`, 
-      iconURL: interaction.user.displayAvatarURL() 
-    })
-    .setTimestamp();
+  // /pin
+  if (commandName === 'pin') {
+    const msg = interaction.options.getString('msg');
+    const channelId = interaction.channel.id;
 
-  const sent = await channel.send({ embeds: [embed] });
+    const res = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id=$1', [channelId]);
+    if (res.rowCount > 0) return interaction.reply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
 
-  // author_id を追加保存（テーブルにある場合用）
-  await pool.query(`
-    INSERT INTO pinned_messages (channel_id, message_id, content, author_id)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (channel_id)
-    DO UPDATE SET message_id = EXCLUDED.message_id, content = EXCLUDED.content, author_id = EXCLUDED.author_id;
-  `, [channel.id, sent.id, msg, interaction.user.id]);
+    const embed = new EmbedBuilder()
+      .setDescription(msg)
+      .setColor(0x00AE86)
+      .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
+      .setTimestamp();
 
-  await interaction.editReply('✅ 固定メッセージを設定しました！');
-}
+    const sent = await interaction.channel.send({ embeds: [embed] });
+    await pool.query('INSERT INTO pinned_messages(channel_id,message_id) VALUES($1,$2)', [channelId, sent.id]);
 
-
-// 🔓 /unpin
-if (commandName === 'unpin') {
-  const channelId = interaction.channel.id;
-
-  await interaction.deferReply({ ephemeral: true }).catch(() => {}); // 安全に defer
-
-  const result = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id = $1', [channelId]);
-  if (result.rowCount === 0) {
-    await interaction.editReply({ content: '❌ このチャンネルには固定メッセージがありません。' });
-    return;
+    return interaction.reply({ content: '📌 メッセージを固定しました！', flags: 64 });
   }
 
-  const pinnedMsgId = result.rows[0].message_id;
-  const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
-  if (msg) await msg.delete().catch(() => {});
+  // /unpin
+  if (commandName === 'unpin') {
+    const channelId = interaction.channel.id;
+    const res = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id=$1', [channelId]);
+    if (res.rowCount === 0) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', flags: 64 });
 
-  await pool.query('DELETE FROM pinned_messages WHERE channel_id = $1', [channelId]);
+    const pinnedMsgId = res.rows[0].message_id;
+    const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
+    if (msg) await msg.delete().catch(() => {});
+    await pool.query('DELETE FROM pinned_messages WHERE channel_id=$1', [channelId]);
 
-  await interaction.editReply({ content: '🗑️ 固定メッセージを解除しました！' });
-}
-});
-  
-client.on('messageCreate', async message => {
-  if (message.author.bot) return; // Botは無視
-
-  const channelId = message.channel.id;
-
-  // 固定メッセージがこのチャンネルにあるか確認
-  const result = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channelId]);
-  if (result.rowCount === 0) return; // このチャンネルは対象外
-
-  const pinData = result.rows[0];
-
-  // 既存メッセージ削除
-  let oldMsg;
-  try {
-    oldMsg = await message.channel.messages.fetch(pinData.message_id);
-    await oldMsg.delete();
-  } catch {
-    console.log('既存固定メッセージは見つからなかったか削除できませんでした');
+    return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', flags: 64 });
   }
-
-  // 再送信（embed footer に名前表示）
-  const embed = new EmbedBuilder()
-    .setDescription(pinData.content)
-    .setColor(0x00AE86)
-    .setFooter({ text: `📌 投稿者: ${pinData.author_name || '不明'}` })
-    .setTimestamp();
-
-  const sent = await message.channel.send({ embeds: [embed] });
-
-  // DB更新
-  await pool.query('UPDATE pinned_messages SET message_id = $1, updated_at = NOW() WHERE channel_id = $2', [sent.id, channelId]);
 });
 
-// --- 起動処理 ---
+// --- 起動 ---
 client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
-
-  const shardInfo = client.shard ? `${client.shard.ids[0] + 1}/2` : '1/2';
+  const shardInfo = client.shard ? `${client.shard.ids[0] + 1}/${client.shard.count}` : '1/1';
   const ping = Math.round(client.ws.ping);
 
   client.user.setPresence({
