@@ -200,116 +200,110 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
 
-  // /auth
-  if (commandName === 'auth') {
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
+  try {
+    if (commandName === 'auth') {
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
+      }
+      const authUrl = `https://bot.sakurahp.f5.si/auth`;
+      const embed = new EmbedBuilder()
+        .setTitle('🔐 認証パネル')
+        .setDescription('以下のボタンから認証を進めてください。')
+        .setColor(0x5865F2);
+      const row = new ActionRowBuilder()
+        .addComponents(new ButtonBuilder().setLabel('認証サイトへ').setStyle(ButtonStyle.Link).setURL(authUrl));
+      return interaction.reply({ embeds: [embed], components: [row], flags: 64 });
     }
-    const authUrl = `https://bot.sakurahp.f5.si/auth`;
-    const embed = new EmbedBuilder().setTitle('🔐 認証パネル').setDescription('以下のボタンから認証を進めてください。').setColor(0x5865F2);
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('認証サイトへ').setStyle(ButtonStyle.Link).setURL(authUrl));
-    return interaction.reply({ embeds: [embed], components: [row], flags: 64 });
-  }
 
-  // /report
-  if (commandName === 'report') {
-    await interaction.deferReply({ flags: 64 });
-    const userid = interaction.options.getString('userid');
-    const reason = interaction.options.getString('reason');
-    const file = interaction.options.getAttachment('file');
+    if (commandName === 'report') {
+      await interaction.deferReply({ ephemeral: true });
+      const userid = interaction.options.getString('userid');
+      const reason = interaction.options.getString('reason');
+      const file = interaction.options.getAttachment('file');
 
-    const reportEmbed = new EmbedBuilder()
-      .setTitle('🚨 ユーザー通報')
-      .setColor(0xED4245)
-      .addFields(
-        { name: '通報者', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
-        { name: '対象ユーザー', value: `<@${userid}> (${userid})`, inline: true },
-        { name: '理由', value: reason }
-      )
-      .setTimestamp();
+      const reportEmbed = new EmbedBuilder()
+        .setTitle('🚨 ユーザー通報')
+        .setColor(0xED4245)
+        .addFields(
+          { name: '通報者', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
+          { name: '対象ユーザー', value: `<@${userid}> (${userid})`, inline: true },
+          { name: '理由', value: reason }
+        )
+        .setTimestamp();
 
-    const reportChannel = await client.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
-    if (!reportChannel?.isTextBased()) return interaction.editReply('❌ 通報チャンネルが見つかりません');
+      const reportChannel = await client.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+      if (!reportChannel?.isTextBased()) return interaction.editReply('❌ 通報チャンネルが見つかりません');
 
-    if (file) await reportChannel.send({ embeds: [reportEmbed], files: [{ attachment: file.url }] });
-    else await reportChannel.send({ embeds: [reportEmbed] });
+      if (file) await reportChannel.send({ embeds: [reportEmbed], files: [{ attachment: file.url }] });
+      else await reportChannel.send({ embeds: [reportEmbed] });
 
-    return interaction.editReply('✅ 通報を送信しました！');
-  }
+      return interaction.editReply('✅ 通報を送信しました！');
+    }
 
-  // /pin
-  if (commandName === 'pin') {
-    const msg = interaction.options.getString('msg');
-    const channelId = interaction.channel.id;
+    if (commandName === 'pin') {
+      const msg = interaction.options.getString('msg');
+      const channelId = interaction.channel.id;
 
-    const res = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id=$1', [channelId]);
-    if (res.rowCount > 0) return interaction.reply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
+      const res = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id=$1', [channelId]);
+      if (res.rowCount > 0)
+        return interaction.reply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
 
-    const embed = new EmbedBuilder()
-      .setDescription(msg)
-      .setColor(0x00AE86)
-      .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
-      .setTimestamp();
+      const embed = new EmbedBuilder()
+        .setDescription(msg)
+        .setColor(0x00AE86)
+        .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
+        .setTimestamp();
 
-    const sent = await interaction.channel.send({ embeds: [embed] });
-await pool.query(
-  'INSERT INTO pinned_messages(channel_id, message_id, content, author_name) VALUES($1, $2, $3, $4)',
-  [channelId, sent.id, msg, interaction.user.tag]
-);
+      const sent = await interaction.channel.send({ embeds: [embed] });
+      await pool.query(
+        'INSERT INTO pinned_messages(channel_id, message_id, content, author_name) VALUES($1, $2, $3, $4)',
+        [channelId, sent.id, msg, interaction.user.tag]
+      );
 
+      return interaction.reply({ content: '📌 メッセージを固定しました！', flags: 64 });
+    }
 
-    return interaction.reply({ content: '📌 メッセージを固定しました！', flags: 64 });
-  }
+    if (commandName === 'unpin') {
+      const channelId = interaction.channel.id;
+      const res = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id=$1', [channelId]);
+      if (res.rowCount === 0) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', flags: 64 });
 
-  // /unpin
-  if (commandName === 'unpin') {
-    const channelId = interaction.channel.id;
-    const res = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id=$1', [channelId]);
-    if (res.rowCount === 0) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', flags: 64 });
+      const pinnedMsgId = res.rows[0].message_id;
+      const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
+      if (msg) await msg.delete().catch(() => {});
+      await pool.query('DELETE FROM pinned_messages WHERE channel_id=$1', [channelId]);
 
-    const pinnedMsgId = res.rows[0].message_id;
-    const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
-    if (msg) await msg.delete().catch(() => {});
-    await pool.query('DELETE FROM pinned_messages WHERE channel_id=$1', [channelId]);
-
-    return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', flags: 64 });
+      return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', flags: 64 });
+    }
+  } catch (err) {
+    console.error('interactionCreate error:', err);
+    if (!interaction.replied && !interaction.deferred)
+      interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
   }
 });
 
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
-
   const channelId = message.channel.id;
 
-  // シャード0だけ処理（マルチシャード対応）
   if (client.shard && client.shard.ids[0] !== 0) return;
 
-  // DBから固定メッセージ情報取得
-  const res = await pool.query('SELECT * FROM pinned_messages WHERE channel_id = $1', [channelId]);
+  const res = await pool.query('SELECT * FROM pinned_messages WHERE channel_id=$1', [channelId]);
   if (res.rowCount === 0) return;
-
   const pinData = res.rows[0];
 
   try {
-    // 既存メッセージ削除
     const oldMsg = await message.channel.messages.fetch(pinData.message_id).catch(() => null);
     if (oldMsg) await oldMsg.delete();
 
-    // Embed作成
     const embed = new EmbedBuilder()
       .setDescription(pinData.content)
       .setColor(0x00AE86)
       .setFooter({ text: `📌 投稿者: ${pinData.author_name || '不明'}` })
       .setTimestamp();
 
-    // メッセージ送信
     const sent = await message.channel.send({ embeds: [embed] });
-
-    // DB更新
-    await pool.query(
-      'UPDATE pinned_messages SET message_id = $1, updated_at = NOW() WHERE channel_id = $2',
-      [sent.id, channelId]
-    );
+    await pool.query('UPDATE pinned_messages SET message_id=$1, updated_at=NOW() WHERE channel_id=$2', [sent.id, channelId]);
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
