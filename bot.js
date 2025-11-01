@@ -252,7 +252,11 @@ client.on('interactionCreate', async interaction => {
       .setTimestamp();
 
     const sent = await interaction.channel.send({ embeds: [embed] });
-    await pool.query('INSERT INTO pinned_messages(channel_id,message_id) VALUES($1,$2)', [channelId, sent.id]);
+await pool.query(
+  'INSERT INTO pinned_messages(channel_id, message_id, content, author_name) VALUES($1, $2, $3, $4)',
+  [channelId, sent.id, msg, interaction.user.tag]
+);
+
 
     return interaction.reply({ content: '📌 メッセージを固定しました！', flags: 64 });
   }
