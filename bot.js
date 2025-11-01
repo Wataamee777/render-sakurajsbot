@@ -174,35 +174,43 @@ export async function handleOAuthCallback({ code, ip }) {
 
 // --- コマンド登録 ---
 const commands = [
+  // 🔐 /auth
   new SlashCommandBuilder()
     .setName('auth')
-    .setDescription('認証用 adminonly')
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator), // 管理者のみ
+    .setDescription('認証用リンクを表示します')
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
+  // 🚨 /report
   new SlashCommandBuilder()
     .setName('report')
     .setDescription('ユーザーを通報します')
     .addStringOption(opt =>
-      opt.setName('userid').setDescription('通報するユーザーID').setRequired(true))
+      opt.setName('userid')
+        .setDescription('通報するユーザーID')
+        .setRequired(true))
     .addStringOption(opt =>
-      opt.setName('reason').setDescription('通報理由').setRequired(true))
+      opt.setName('reason')
+        .setDescription('通報理由')
+        .setRequired(true))
     .addAttachmentOption(opt =>
-      opt.setName('file').setDescription('証拠画像（任意）')),
+      opt.setName('file')
+        .setDescription('証拠画像（任意）')),
 
-  // 📌 /pinコマンド
+  // 📌 /pin
   new SlashCommandBuilder()
     .setName('pin')
     .setDescription('このチャンネルにメッセージを固定します')
     .addStringOption(opt =>
       opt.setName('msg')
         .setDescription('固定する内容')
-        .setRequired(true)),
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator), // 管理者のみ
-  // 🔓 /unpinコマンド
+        .setRequired(true))
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  // 🔓 /unpin
   new SlashCommandBuilder()
     .setName('unpin')
     .setDescription('このチャンネルの固定メッセージを解除します')
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator), // 管理者のみ
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
 ].map(c => c.toJSON());
 
 // --- コマンド登録処理 ---
