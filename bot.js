@@ -344,9 +344,11 @@ if (commandName === 'pin') {
 if (commandName === 'unpin') {
   const channelId = interaction.channel.id;
 
+  await interaction.deferReply({ ephemeral: true }).catch(() => {}); // 安全に defer
+
   const result = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id = $1', [channelId]);
   if (result.rowCount === 0) {
-    await interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません。', ephemeral: true });
+    await interaction.editReply({ content: '❌ このチャンネルには固定メッセージがありません。' });
     return;
   }
 
@@ -356,7 +358,7 @@ if (commandName === 'unpin') {
 
   await pool.query('DELETE FROM pinned_messages WHERE channel_id = $1', [channelId]);
 
-  await interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', ephemeral: true });
+  await interaction.editReply({ content: '🗑️ 固定メッセージを解除しました！' });
 }
 });
   
