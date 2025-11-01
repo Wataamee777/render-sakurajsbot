@@ -215,7 +215,7 @@ client.on('interactionCreate', async interaction => {
       return interaction.reply({ content: '❌ 管理者のみ使用可能なコマンドです。', ephemeral: true });
     }
 
-    const authUrl = `https://auth.sakurahp.f5.si/auth`;
+    const authUrl = `https://bot.sakurahp.f5.si/auth`;
 
     const embed = new EmbedBuilder()
       .setTitle('🔐 Discord認証パネル')
