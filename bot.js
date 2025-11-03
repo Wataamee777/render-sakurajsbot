@@ -38,7 +38,7 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID || !DISCORD_RO
 // --- PostgreSQL Pool ---
 const pool = new Pool({
   connectionString: NEON_DB_CONNECTION_STRING,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: true }
 });
 
 const queues = new Map();
