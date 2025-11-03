@@ -21,7 +21,8 @@
     "pg": "^8.10.0",
     "node-fetch": "^3.0.0",
     "@discordjs/voice": "^0.17.0",  
-    "play-dl": "^1.9.7",             
+    "play-dl": "^1.9.7",  
+    "ytdl-core": "^4.11.5",
     "ffmpeg-static": "^5.2.0"
   },
   "devDependencies": {
