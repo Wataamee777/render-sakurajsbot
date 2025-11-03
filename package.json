@@ -22,7 +22,7 @@
     "node-fetch": "^3.0.0",
     "@discordjs/voice": "^0.17.0",  
     "play-dl": "^1.9.7",             
-    "ffmpeg-static": "^6.0.0"
+    "ffmpeg-static": "^5.2.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
