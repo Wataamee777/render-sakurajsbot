@@ -12,6 +12,8 @@ import {
   ButtonStyle,
   PermissionsBitField
 } from 'discord.js';
+import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, getVoiceConnection } from '@discordjs/voice';
+import play from 'play-dl';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -38,10 +40,34 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: true }
 });
 
+const queues = new Map();
+
 // --- Discord Client ---
 export const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
+
+async function playNext(guildId) {
+  const queue = queues.get(guildId);
+  if (!queue || queue.songs.length === 0) {
+    if (queue?.connection) queue.connection.destroy();
+    queues.delete(guildId);
+    return;
+  }
+
+  const song = queue.songs.shift();
+  const stream = await play.stream(song.url);
+  const resource = createAudioResource(stream.stream, { inputType: stream.type });
+  queue.player.play(resource);
+
+  const embed = new EmbedBuilder()
+    .setTitle('🎧 再生中')
+    .setDescription(`[${song.title}](${song.url})`)
+    .setColor(0x5865F2);
+  queue.textChannel.send({ embeds: [embed] }).catch(() => {});
+
+  queue.player.once(AudioPlayerStatus.Idle, () => playNext(guildId));
+  }
 
 // --- IP ユーティリティ ---
 export function hashIP(ip) {
@@ -170,6 +196,25 @@ const commands = [
     .setName('unpin')
     .setDescription('チャンネルの固定メッセージを解除します')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
+  
+  // --- 音楽コマンド追加 ---
+new SlashCommandBuilder()
+  .setName('play')
+  .setDescription('🎶 音楽を再生します')
+  .addStringOption(opt => opt.setName('url').setDescription('YouTubeまたはSpotifyのURL').setRequired(true)),
+
+new SlashCommandBuilder()
+  .setName('skip')
+  .setDescription('⏭️ 現在の曲をスキップします'),
+
+new SlashCommandBuilder()
+  .setName('stop')
+  .setDescription('🛑 現在のキューの再生を停止して退出します'),
+
+new SlashCommandBuilder()
+  .setName('playlist')
+  .setDescription('📜 現在の再生キューを表示します'),
+
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
@@ -248,10 +293,10 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
 
       const embed = new EmbedBuilder()
-        .setDescription(msg)
-        .setColor(0x00AE86)
-        .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
-        .setTimestamp();
+       .setDescription(pinData.content)
+       .setColor(0x00AE86)
+       .setFooter({ text: `📌 投稿者: ${pinData.author_name || '不明'}` })
+       .setTimestamp();
 
       const sent = await interaction.channel.send({ embeds: [embed] });
       await pool.query(
@@ -279,6 +324,77 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.replied && !interaction.deferred)
       interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
   }
+  
+    // --- /play ---
+  if (commandName === 'play') {
+    const url = interaction.options.getString('url');
+    const voiceChannel = interaction.member.voice.channel;
+    if (!voiceChannel) return interaction.reply({ content: '❌ ボイスチャンネルに入ってね！', flags: 64 });
+
+    await interaction.deferReply({ flags: 64 });
+
+    const info = await play.video_basic_info(url).catch(() => null);
+    if (!info) return interaction.editReply('❌ 音楽情報が取得できなかったよ');
+
+    let queue = queues.get(interaction.guild.id);
+    if (!queue) {
+      const connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: interaction.guild.id,
+        adapterCreator: interaction.guild.voiceAdapterCreator
+      });
+      const player = createAudioPlayer();
+      connection.subscribe(player);
+
+      queue = { connection, player, songs: [], textChannel: interaction.channel };
+      queues.set(interaction.guild.id, queue);
+    }
+
+    queue.songs.push({ title: info.video_details.title, url });
+
+    interaction.editReply(`✅ キューに追加: **${info.video_details.title}**`);
+
+    if (queue.player.state.status !== AudioPlayerStatus.Playing) playNext(interaction.guild.id);
+  }
+
+  // --- /skip ---
+  if (commandName === 'skip') {
+    const queue = queues.get(interaction.guild.id);
+    if (!queue) return interaction.reply({ content: '⏹️ 再生中の曲はないよ', flags: 64 });
+    queue.player.stop();
+    interaction.reply('⏭️ スキップしたよ！');
+  }
+
+  // --- /stop ---
+  if (commandName === 'stop') {
+    const queue = queues.get(interaction.guild.id);
+    if (!queue) return interaction.reply({ content: '⏹️ 再生中の曲はないよ', flags: 64 });
+
+    queue.songs = [];
+    queue.player.stop();
+    queue.connection.destroy();
+    queues.delete(interaction.guild.id);
+    interaction.reply('🛑 再生を停止して退出したよ！');
+  }
+
+  // --- /playlist ---
+  if (commandName === 'playlist') {
+    const queue = queues.get(interaction.guild.id);
+    if (!queue || queue.songs.length === 0)
+      return interaction.reply({ content: '📭 キューは空だよ！', flags: 64 });
+
+    const list = queue.songs
+      .map((s, i) => `${i + 1}. [${s.title}](${s.url})`)
+      .join('\n')
+      .slice(0, 4000);
+
+    const embed = new EmbedBuilder()
+      .setTitle('🎶 現在のプレイリスト')
+      .setDescription(list)
+      .setColor(0x00AE86);
+
+    interaction.reply({ embeds: [embed], flags: 64 });
+  }
 });
 
 client.on('messageCreate', async message => {
@@ -305,6 +421,37 @@ client.on('messageCreate', async message => {
     await pool.query('UPDATE pinned_messages SET message_id=$1, updated_at=NOW() WHERE channel_id=$2', [sent.id, channelId]);
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
+  }
+});
+
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  try {
+    const guildId = oldState.guild.id;
+    const queue = queues.get(guildId);
+    if (!queue) return;
+
+    const channel = oldState.channel || newState.channel;
+    if (!channel) return;
+
+    if (!channel.members.has(client.user.id)) {
+      queues.delete(guildId);
+      return;
+    }
+
+    const nonBotMembers = channel.members.filter(m => !m.user.bot);
+    if (nonBotMembers.size === 0) {
+      queue.songs = [];
+      if (queue.player) queue.player.stop();
+      if (queue.connection) queue.connection.destroy();
+      queues.delete(guildId);
+
+      const embed = new EmbedBuilder()
+        .setDescription('👋 誰もいなくなったから退出したよ！')
+        .setColor(0xff5555);
+      if (queue.textChannel) queue.textChannel.send({ embeds: [embed] }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('voiceStateUpdate error:', err);
   }
 });
 
