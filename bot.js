@@ -195,7 +195,6 @@ async function ensurePinTable() {
 }
 ensurePinTable();
 
-// --- コマンド応答 ---
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
