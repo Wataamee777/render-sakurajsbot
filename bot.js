@@ -38,7 +38,7 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID || !DISCORD_RO
 // --- PostgreSQL Pool ---
 const pool = new Pool({
   connectionString: NEON_DB_CONNECTION_STRING,
-  ssl: { rejectUnauthorized: true }
+  ssl: { rejectUnauthorized: false }
 });
 
 const queues = new Map();
@@ -272,9 +272,9 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
 
       const embed = new EmbedBuilder()
-       .setDescription(pinData.content)
+       .setDescription(msg)
        .setColor(0x00AE86)
-       .setFooter({ text: `📌 投稿者: ${pinData.author_name || '不明'}` })
+       .setFooter({ text: `📌 投稿者: 'owner' || '不明'` })
        .setTimestamp();
 
       const sent = await interaction.channel.send({ embeds: [embed] });
@@ -447,10 +447,11 @@ function playNext(guildId) {
   guildQueue.connection.subscribe(guildQueue.player);
 
   guildQueue.player.removeAllListeners(AudioPlayerStatus.Idle); // 👈 二重登録防止
-  guildQueue.player.on(AudioPlayerStatus.Idle, () => {
-    guildQueue.songs.shift();
-    playNext(guildId);
-  });
+guildQueue.player.on(AudioPlayerStatus.Idle, () => {
+  if (guildQueue.songs[0]?.stream?.destroy) guildQueue.songs[0].stream.destroy();
+  guildQueue.songs.shift();
+  playNext(guildId);
+});
 }
 
 // --- 誰もいなくなったら自動退出 ---
