@@ -304,97 +304,111 @@ client.on('interactionCreate', async interaction => {
       interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
   }
   
-// --- /play ---
-if (interaction.commandName === 'play') {
-  const url = interaction.options.getString('url');
-  const voiceChannel = interaction.member?.voice?.channel;
-  if (!voiceChannel) return interaction.reply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
+  // --- /play ---
+  if (interaction.commandName === "play") {
+    await interaction.deferReply();
 
-  await interaction.deferReply();
+    if (!voiceChannel)
+      return interaction.editReply("❌ まずボイスチャンネルに参加してね！");
 
-  let guildQueue = queues.get(interaction.guild.id);
-  if (!guildQueue) {
-    guildQueue = {
-      connection: null,
-      player: createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Stop } }),
-      songs: [],
-      playing: false,
-      textChannel: interaction.channel
-    };
-    queues.set(interaction.guild.id, guildQueue);
-  }
+    let guildQueue = queues.get(guildId);
+    if (!guildQueue) {
+      guildQueue = {
+        connection: null,
+        player: createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Stop } }),
+        songs: [],
+        playing: false,
+        textChannel: interaction.channel
+      };
+      queues.set(guildId, guildQueue);
+    }
 
-  try {
-    // 🎵 Stream取得
-    let streamData;
     try {
-      streamData = await play.stream(url);
-    } catch {
-      if (ytdl.validateURL(url)) {
-        const info = await ytdl.getInfo(url);
-        const stream = ytdl.downloadFromInfo(info, { filter: 'audioonly', quality: 'highestaudio' });
-        streamData = { stream, type: 'opus' };
-      } else {
-        return interaction.editReply('⚠️ 再生できる形式のURLじゃないみたい！');
+      const url = interaction.options.getString("url");
+
+      // 🎵 Stream取得（YouTube / Spotify / 通常動画対応）
+      let streamData;
+      try {
+        streamData = await play.stream(url);
+      } catch {
+        if (ytdl.validateURL(url)) {
+          const info = await ytdl.getInfo(url);
+          const stream = ytdl.downloadFromInfo(info, { filter: 'audioonly', quality: 'highestaudio' });
+          streamData = { stream, type: 'opus' };
+        } else {
+          return interaction.editReply("⚠️ 再生できる形式のURLじゃないみたい！");
+        }
       }
-    }
 
-    const info = await play.video_info(url).catch(() => null);
-    const title = info?.video_details?.title || '不明なタイトル';
+      const info = await play.video_info(url).catch(() => null);
+      const title = info?.video_details?.title || "不明なタイトル";
 
-    guildQueue.songs.push({
-      title,
-      url,
-      stream: streamData.stream,
-      type: streamData.type
-    });
-
-    if (!guildQueue.playing) {
-      guildQueue.playing = true;
-      guildQueue.connection = joinVoiceChannel({
-        channelId: voiceChannel.id,
-        guildId: interaction.guild.id,
-        adapterCreator: interaction.guild.voiceAdapterCreator
+      guildQueue.songs.push({
+        title,
+        url,
+        stream: streamData.stream,
+        type: streamData.type
       });
-      playNext(interaction.guild.id);
+
+      if (!guildQueue.playing) {
+        guildQueue.playing = true;
+        guildQueue.connection = joinVoiceChannel({
+          channelId: voiceChannel.id,
+          guildId: guildId,
+          adapterCreator: interaction.guild.voiceAdapterCreator
+        });
+        playNext(guildId);
+      }
+
+      await interaction.editReply(`🎶 **${title}** を再生キューに追加したよ！`);
+
+    } catch (err) {
+      console.error("Play error:", err);
+      await interaction.editReply("💥 エラーが発生したみたい…");
     }
-
-    await interaction.editReply(`🎶 **${title}** を再生キューに追加したよ！`);
-
-  } catch (err) {
-    console.error(err);
-    await interaction.editReply('💥 エラーが発生したみたい…');
   }
-}
 
-// --- /skip ---
-if (interaction.commandName === 'skip') {
-  const guildQueue = queues.get(interaction.guild.id);
-  if (!guildQueue || guildQueue.songs.length <= 1) return interaction.reply('⚠️ スキップできる曲がないよ！');
-  guildQueue.player.stop(true);
-  interaction.reply('⏭️ スキップしたよ！');
-}
+  // --- /skip ---
+  if (interaction.commandName === "skip") {
+    await interaction.deferReply();
 
-// --- /stop ---
-if (interaction.commandName === 'stop') {
-  const guildQueue = queues.get(interaction.guild.id);
-  if (!guildQueue) return interaction.reply('⚠️ 何も再生してないよ！');
-  guildQueue.songs = [];
-  guildQueue.player.stop();
-  if (guildQueue.connection) guildQueue.connection.destroy();
-  queues.delete(interaction.guild.id);
-  interaction.reply('🛑 再生を停止したよ！');
-}
+    const guildQueue = queues.get(guildId);
+    if (!guildQueue || guildQueue.songs.length <= 1)
+      return interaction.editReply("⚠️ スキップできる曲がないよ！");
 
-// --- /playlist ---
-if (interaction.commandName === 'playlist') {
-  const guildQueue = queues.get(interaction.guild.id);
-  if (!guildQueue || guildQueue.songs.length === 0)
-    return interaction.reply('📭 再生中のプレイリストは空っぽ！');
+    guildQueue.player.stop(true);
+    await interaction.editReply("⏭️ スキップしたよ！");
+  }
 
-  const list = guildQueue.songs.map((s, i) => `${i === 0 ? '▶️' : `${i}.`} ${s.title}`).join('\n');
-  interaction.reply(`🎵 **再生キュー:**\n${list}`);
-}
+  // --- /stop ---
+  if (interaction.commandName === "stop") {
+    await interaction.deferReply();
+
+    const guildQueue = queues.get(guildId);
+    if (!guildQueue)
+      return interaction.editReply("⚠️ 何も再生してないよ！");
+
+    guildQueue.songs = [];
+    guildQueue.player.stop();
+    if (guildQueue.connection) guildQueue.connection.destroy();
+    queues.delete(guildId);
+    await interaction.editReply("🛑 再生を停止したよ！");
+  }
+
+  // --- /playlist ---
+  if (interaction.commandName === "playlist") {
+    await interaction.deferReply();
+
+    const guildQueue = queues.get(guildId);
+    if (!guildQueue || guildQueue.songs.length === 0)
+      return interaction.editReply("📭 再生中のプレイリストは空っぽ！");
+
+    const list = guildQueue.songs
+      .map((s, i) => `${i === 0 ? "▶️" : `${i}.`} ${s.title}`)
+      .join("\n");
+
+    await interaction.editReply(`🎵 **再生キュー:**\n${list}`);
+  }
 });
 
 // --- 実際に再生する関数 ---
@@ -415,7 +429,7 @@ function playNext(guildId) {
     guildQueue.songs.shift();
     playNext(guildId);
   });
-}
+  }
 
 // --- 誰もいなくなったら自動退出 ---
 client.on('voiceStateUpdate', async (oldState, newState) => {
