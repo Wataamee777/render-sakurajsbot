@@ -12,7 +12,7 @@ import {
   ButtonStyle,
   PermissionsBitField
 } from 'discord.js';
-import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, getVoiceConnection } from '@discordjs/voice';
+import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, getVoiceConnection, NoSubscriberBehavior } from '@discordjs/voice';
 import play from 'play-dl';
 import ytdl from 'ytdl-core';
 import pkg from 'pg';
@@ -307,7 +307,9 @@ client.on('interactionCreate', async interaction => {
   // --- /play ---
   if (interaction.commandName === "play") {
     await interaction.deferReply();
-
+    const guildId = interaction.guild.id;
+    const voiceChannel = interaction.member?.voice?.channel;
+    
     if (!voiceChannel)
       return interaction.editReply("❌ まずボイスチャンネルに参加してね！");
 
@@ -371,6 +373,9 @@ client.on('interactionCreate', async interaction => {
   // --- /skip ---
   if (interaction.commandName === "skip") {
     await interaction.deferReply();
+    const guildId = interaction.guild.id;
+    const voiceChannel = interaction.member?.voice?.channel;
+
 
     const guildQueue = queues.get(guildId);
     if (!guildQueue || guildQueue.songs.length <= 1)
@@ -383,6 +388,8 @@ client.on('interactionCreate', async interaction => {
   // --- /stop ---
   if (interaction.commandName === "stop") {
     await interaction.deferReply();
+    const guildId = interaction.guild.id;
+    const voiceChannel = interaction.member?.voice?.channel;
 
     const guildQueue = queues.get(guildId);
     if (!guildQueue)
@@ -398,6 +405,9 @@ client.on('interactionCreate', async interaction => {
   // --- /playlist ---
   if (interaction.commandName === "playlist") {
     await interaction.deferReply();
+    const guildId = interaction.guild.id;
+    const voiceChannel = interaction.member?.voice?.channel;
+
 
     const guildQueue = queues.get(guildId);
     if (!guildQueue || guildQueue.songs.length === 0)
