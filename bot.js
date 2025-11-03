@@ -435,7 +435,7 @@ function playNext(guildId) {
   guildQueue.player.play(resource);
   guildQueue.connection.subscribe(guildQueue.player);
 
-  guildQueue.player.once(AudioPlayerStatus.Idle, () => {
+  guildQueue.player.on(AudioPlayerStatus.Idle, () => {
     guildQueue.songs.shift();
     playNext(guildId);
   });
