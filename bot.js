@@ -422,6 +422,7 @@ client.on('voiceStateUpdate', (oldState, newState) => {
   // チャンネルに誰もいなくなった場合
   if (voiceChannel && voiceChannel.members.filter(m => !m.user.bot).size === 0) {
     connection.destroy();
+    queues.delete(oldState.guild.id);
     console.log(`👋 ${voiceChannel.name} から切断しました（誰もいなくなったため）`);
   }
 });
