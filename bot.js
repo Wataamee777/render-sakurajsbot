@@ -230,7 +230,7 @@ client.on('interactionCreate', async interaction => {
         )
         .setTimestamp();
 
-      const reportChannel = await client.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
+      const reportChannel = await client.channels.fetch(1208987840462200882);
       if (!reportChannel?.isTextBased()) return interaction.editReply('❌ 通報チャンネルが見つかりません');
 
       if (file) await reportChannel.send({ embeds: [reportEmbed], files: [{ attachment: file.url }] });
