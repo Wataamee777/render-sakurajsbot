@@ -13,7 +13,6 @@ import {
   PermissionsBitField
 } from 'discord.js';
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, getVoiceConnection, NoSubscriberBehavior } from '@discordjs/voice';
-import play from 'play-dl';
 import ytdl from 'ytdl-core';
 import pkg from 'pg';
 const { Pool } = pkg;
@@ -180,7 +179,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName('play')
     .setDescription('🎶 音楽を再生します')
-    .addStringOption(opt => opt.setName('url').setDescription('YouTubeまたはSpotifyのURL').setRequired(true)),
+    .addStringOption(opt => opt.setName('url').setDescription('YouTubeのURL').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('skip')
@@ -304,136 +303,92 @@ client.on('interactionCreate', async interaction => {
       interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
   }
   
- if (interaction.commandName === "play") {
-  try {
-    // 💨 deferを最初に即実行
-    await interaction.deferReply();
-
-    let fixedUrl = url.replace('youtu.be/', 'www.youtube.com/watch?v=');
-
-
-    const guildId = interaction.guild.id;
+  // --- /play ---
+  if (interaction.commandName === 'play') {
+    const url = interaction.options.getString('url');
     const voiceChannel = interaction.member?.voice?.channel;
     if (!voiceChannel)
-      return interaction.editReply("❌ まずボイスチャンネルに参加してね！");
+      return interaction.reply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
 
-    let guildQueue = queues.get(guildId);
+    await interaction.deferReply();
+
+    let guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue) {
       guildQueue = {
         connection: null,
         player: createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Stop } }),
         songs: [],
         playing: false,
-        textChannel: interaction.channel
+        textChannel: interaction.channel,
       };
-      queues.set(guildId, guildQueue);
+      queues.set(interaction.guild.id, guildQueue);
     }
 
-    const url = interaction.options.getString("url");
-    if (!url) return interaction.editReply("⚠️ URLを指定してね！");
-
-    let streamData;
     try {
-      // 🔄 Spotify対応
-      if (play.is_expired()) await play.refreshToken();
-      if (play.spotify(url)) {
-        const sp_data = await play.spotify(url);
-        const yt = await sp_data.fetchYouTube();
-        streamData = await play.stream(yt.url);
-      } else {
-        // 🧠 通常のURL
-        streamData = await play.stream(url);
+      // 🎵 YouTube音声ストリーム取得
+      if (!ytdl.validateURL(url)) {
+        return interaction.editReply('⚠️ 有効なYouTube URLを入れてね！');
       }
-    } catch (err) {
-      console.warn("play-dl失敗、ytdlフォールバック:", err.message);
-      if (ytdl.validateURL(url)) {
-        const info = await ytdl.getInfo(url);
-        const stream = ytdl.downloadFromInfo(info, { filter: "audioonly", quality: "highestaudio" });
-        streamData = { stream, type: "opus" };
-      } else {
-        return interaction.editReply("⚠️ 再生できる形式のURLじゃないみたい！");
-      }
-    }
 
-    const info = await play.video_info(url).catch(() => null);
-    const title = info?.video_details?.title || "不明なタイトル";
+      const info = await ytdl.getInfo(url);
+      const title = info.videoDetails.title;
+      const stream = ytdl.downloadFromInfo(info, { filter: 'audioonly', quality: 'highestaudio' });
 
-    guildQueue.songs.push({
-      title,
-      url,
-      stream: streamData.stream,
-      type: streamData.type
-    });
-
-    if (!guildQueue.playing) {
-      guildQueue.playing = true;
-      guildQueue.connection = joinVoiceChannel({
-        channelId: voiceChannel.id,
-        guildId: guildId,
-        adapterCreator: interaction.guild.voiceAdapterCreator
+      guildQueue.songs.push({
+        title,
+        url,
+        stream,
       });
-      playNext(guildId);
-    }
 
-    await interaction.editReply(`🎶 **${title}** を再生キューに追加したよ！`);
-  } catch (err) {
-    console.error("Play Command Error:", err);
-    if (!interaction.replied && !interaction.deferred)
-      return interaction.reply({ content: "💥 エラーが発生したみたい…", ephemeral: true });
-    await interaction.editReply("💥 再生中にエラーが起きたよ！");
+      if (!guildQueue.playing) {
+        guildQueue.playing = true;
+        guildQueue.connection = joinVoiceChannel({
+          channelId: voiceChannel.id,
+          guildId: interaction.guild.id,
+          adapterCreator: interaction.guild.voiceAdapterCreator,
+        });
+        playNext(interaction.guild.id);
+      }
+
+      await interaction.editReply(`🎶 **${title}** を再生キューに追加したよ！`);
+    } catch (err) {
+      console.error(err);
+      await interaction.editReply('💥 再生中にエラーが発生しました…');
+    }
   }
-}
 
   // --- /skip ---
-  if (interaction.commandName === "skip") {
-    await interaction.deferReply();
-    const guildId = interaction.guild.id;
-    const voiceChannel = interaction.member?.voice?.channel;
-
-
-    const guildQueue = queues.get(guildId);
+  else if (interaction.commandName === 'skip') {
+    const guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue || guildQueue.songs.length <= 1)
-      return interaction.editReply("⚠️ スキップできる曲がないよ！");
-
+      return interaction.reply('⚠️ スキップできる曲がないよ！');
     guildQueue.player.stop(true);
-    await interaction.editReply("⏭️ スキップしたよ！");
+    interaction.reply('⏭️ スキップしたよ！');
   }
 
   // --- /stop ---
-  if (interaction.commandName === "stop") {
-    await interaction.deferReply();
-    const guildId = interaction.guild.id;
-    const voiceChannel = interaction.member?.voice?.channel;
-
-    const guildQueue = queues.get(guildId);
-    if (!guildQueue)
-      return interaction.editReply("⚠️ 何も再生してないよ！");
-
+  else if (interaction.commandName === 'stop') {
+    const guildQueue = queues.get(interaction.guild.id);
+    if (!guildQueue) return interaction.reply('⚠️ 何も再生してないよ！');
     guildQueue.songs = [];
     guildQueue.player.stop();
     if (guildQueue.connection) guildQueue.connection.destroy();
-    queues.delete(guildId);
-    await interaction.editReply("🛑 再生を停止したよ！");
+    queues.delete(interaction.guild.id);
+    interaction.reply('🛑 再生を停止して退出したよ！');
   }
 
   // --- /playlist ---
-  if (interaction.commandName === "playlist") {
-    await interaction.deferReply();
-    const guildId = interaction.guild.id;
-    const voiceChannel = interaction.member?.voice?.channel;
-
-
-    const guildQueue = queues.get(guildId);
+  else if (interaction.commandName === 'playlist') {
+    const guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue || guildQueue.songs.length === 0)
-      return interaction.editReply("📭 再生中のプレイリストは空っぽ！");
+      return interaction.reply('📭 再生中のプレイリストは空っぽ！');
 
     const list = guildQueue.songs
-      .map((s, i) => `${i === 0 ? "▶️" : `${i}.`} ${s.title}`)
-      .join("\n");
-
-    await interaction.editReply(`🎵 **再生キュー:**\n${list}`);
+      .map((s, i) => `${i === 0 ? '▶️' : `${i}.`} ${s.title}`)
+      .join('\n');
+    interaction.reply(`🎵 **再生キュー:**\n${list}`);
   }
-});
+}
 
 // --- 実際に再生する関数 ---
 function playNext(guildId) {
@@ -445,40 +400,32 @@ function playNext(guildId) {
   }
 
   const song = guildQueue.songs[0];
-  const resource = createAudioResource(song.stream, { inputType: song.type });
+  const resource = createAudioResource(song.stream);
   guildQueue.player.play(resource);
   guildQueue.connection.subscribe(guildQueue.player);
 
-  guildQueue.player.removeAllListeners(AudioPlayerStatus.Idle); // 👈 二重登録防止
-guildQueue.player.on(AudioPlayerStatus.Idle, () => {
-  if (guildQueue.songs[0]?.stream?.destroy) guildQueue.songs[0].stream.destroy();
-  guildQueue.songs.shift();
-  playNext(guildId);
-});
+  guildQueue.player.once(AudioPlayerStatus.Idle, () => {
+    guildQueue.songs.shift();
+    playNext(guildId);
+  });
 }
 
-// --- 誰もいなくなったら自動退出 ---
-client.on('voiceStateUpdate', async (oldState, newState) => {
-  const guildId = oldState.guild.id;
-  const queue = queues.get(guildId);
-  if (!queue) return;
+// 誰もいなくなったら自動で切断
+client.on('voiceStateUpdate', (oldState, newState) => {
+  // Botが接続しているボイスチャンネル
+  const connection = getVoiceConnection(oldState.guild.id);
+  if (!connection) return;
 
-  const channel = oldState.channel || newState.channel;
-  if (!channel) return;
+  const channel = connection.joinConfig.channelId;
+  const voiceChannel = oldState.guild.channels.cache.get(channel);
 
-  const nonBotMembers = channel.members.filter(m => !m.user.bot);
-  if (nonBotMembers.size === 0) {
-    queue.songs = [];
-    if (queue.player) queue.player.stop();
-    if (queue.connection) queue.connection.destroy();
-    queues.delete(guildId);
-
-    const embed = new EmbedBuilder()
-      .setDescription('👋 誰もいなくなったから退出したよ！')
-      .setColor(0xff5555);
-    queue.textChannel?.send({ embeds: [embed] }).catch(() => {});
+  // チャンネルに誰もいなくなった場合
+  if (voiceChannel && voiceChannel.members.filter(m => !m.user.bot).size === 0) {
+    connection.destroy();
+    console.log(`👋 ${voiceChannel.name} から切断しました（誰もいなくなったため）`);
   }
 });
+
 
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
