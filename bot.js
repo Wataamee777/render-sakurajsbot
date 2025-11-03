@@ -307,10 +307,9 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'play') {
     const url = interaction.options.getString('url');
     const voiceChannel = interaction.member?.voice?.channel;
-    if (!voiceChannel)
-      return interaction.reply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
-
     await interaction.deferReply();
+    if (!voiceChannel)
+      return interaction.editreply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
 
     let guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue) {
