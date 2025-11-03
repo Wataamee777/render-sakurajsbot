@@ -351,7 +351,7 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.editReply(`🎶 **${title}** を再生キューに追加したよ！`);
     } catch (err) {
-      console.error(err);
+      console.error('再生エラー詳細:', err);
       await interaction.editReply('💥 再生中にエラーが発生しました…');
     }
   }
