@@ -456,7 +456,7 @@ client.on('messageCreate', async message => {
 });
 
 // --- 起動 ---
-client.once('ready', async () => {
+client.once('clientready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
   const shardInfo = client.shard ? `${client.shard.ids[0] + 1}/${client.shard.count}` : '1/1';
   const ping = Math.round(client.ws.ping);
