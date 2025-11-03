@@ -14,6 +14,7 @@ import {
 } from 'discord.js';
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, getVoiceConnection } from '@discordjs/voice';
 import play from 'play-dl';
+import ytdl from 'ytdl-core';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -47,27 +48,49 @@ export const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-async function playNext(guildId) {
-  const queue = queues.get(guildId);
-  if (!queue || queue.songs.length === 0) {
-    if (queue?.connection) queue.connection.destroy();
-    queues.delete(guildId);
-    return;
+async function playMusic(interaction, url) {
+  const voiceChannel = interaction.member.voice.channel;
+  if (!voiceChannel) return interaction.reply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
+
+  await interaction.deferReply();
+
+  let stream, info;
+
+  try {
+    // ✅ まず play-dl で試す
+    info = await play.video_info(url);
+    stream = await play.stream(url);
+  } catch (e) {
+    console.warn('play-dlで失敗、ytdl-coreで再試行:', e.message);
+
+    // ✅ フォールバック: ytdl-coreで取得
+    if (!ytdl.validateURL(url)) {
+      return interaction.editReply('❌ 有効なYouTube URLを入力してね！');
+    }
+
+    info = await ytdl.getInfo(url);
+    stream = ytdl.downloadFromInfo(info, { filter: 'audioonly', quality: 'highestaudio' });
   }
 
-  const song = queue.songs.shift();
-  const stream = await play.stream(song.url);
-  const resource = createAudioResource(stream.stream, { inputType: stream.type });
-  queue.player.play(resource);
+  const resource = createAudioResource(stream.stream ?? stream, {
+    inputType: stream.type ?? undefined
+  });
 
-  const embed = new EmbedBuilder()
-    .setTitle('🎧 再生中')
-    .setDescription(`[${song.title}](${song.url})`)
-    .setColor(0x5865F2);
-  queue.textChannel.send({ embeds: [embed] }).catch(() => {});
+  const connection = joinVoiceChannel({
+    channelId: voiceChannel.id,
+    guildId: interaction.guild.id,
+    adapterCreator: interaction.guild.voiceAdapterCreator
+  });
 
-  queue.player.once(AudioPlayerStatus.Idle, () => playNext(guildId));
-  }
+  const player = createAudioPlayer();
+  connection.subscribe(player);
+  player.play(resource);
+
+  player.once(AudioPlayerStatus.Idle, () => connection.destroy());
+
+  const title = info?.video_details?.title || info?.videoDetails?.title || '不明な動画';
+  await interaction.editReply(`🎶 再生中: **${title}**`);
+}
 
 // --- IP ユーティリティ ---
 export function hashIP(ip) {
