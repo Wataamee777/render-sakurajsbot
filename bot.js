@@ -304,12 +304,13 @@ client.on('interactionCreate', async interaction => {
       interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
   }
   
-  // --- /play ---
-  if (interaction.commandName === "play") {
+ if (interaction.commandName === "play") {
+  try {
+    // 💨 deferを最初に即実行
     await interaction.deferReply();
+
     const guildId = interaction.guild.id;
     const voiceChannel = interaction.member?.voice?.channel;
-    
     if (!voiceChannel)
       return interaction.editReply("❌ まずボイスチャンネルに参加してね！");
 
@@ -325,50 +326,60 @@ client.on('interactionCreate', async interaction => {
       queues.set(guildId, guildQueue);
     }
 
+    const url = interaction.options.getString("url");
+    if (!url) return interaction.editReply("⚠️ URLを指定してね！");
+
+    let streamData;
     try {
-      const url = interaction.options.getString("url");
-
-      // 🎵 Stream取得（YouTube / Spotify / 通常動画対応）
-      let streamData;
-      try {
+      // 🔄 Spotify対応
+      if (play.is_expired()) await play.refreshToken();
+      if (play.spotify(url)) {
+        const sp_data = await play.spotify(url);
+        const yt = await sp_data.fetchYouTube();
+        streamData = await play.stream(yt.url);
+      } else {
+        // 🧠 通常のURL
         streamData = await play.stream(url);
-      } catch {
-        if (ytdl.validateURL(url)) {
-          const info = await ytdl.getInfo(url);
-          const stream = ytdl.downloadFromInfo(info, { filter: 'audioonly', quality: 'highestaudio' });
-          streamData = { stream, type: 'opus' };
-        } else {
-          return interaction.editReply("⚠️ 再生できる形式のURLじゃないみたい！");
-        }
       }
-
-      const info = await play.video_info(url).catch(() => null);
-      const title = info?.video_details?.title || "不明なタイトル";
-
-      guildQueue.songs.push({
-        title,
-        url,
-        stream: streamData.stream,
-        type: streamData.type
-      });
-
-      if (!guildQueue.playing) {
-        guildQueue.playing = true;
-        guildQueue.connection = joinVoiceChannel({
-          channelId: voiceChannel.id,
-          guildId: guildId,
-          adapterCreator: interaction.guild.voiceAdapterCreator
-        });
-        playNext(guildId);
-      }
-
-      await interaction.editReply(`🎶 **${title}** を再生キューに追加したよ！`);
-
     } catch (err) {
-      console.error("Play error:", err);
-      await interaction.editReply("💥 エラーが発生したみたい…");
+      console.warn("play-dl失敗、ytdlフォールバック:", err.message);
+      if (ytdl.validateURL(url)) {
+        const info = await ytdl.getInfo(url);
+        const stream = ytdl.downloadFromInfo(info, { filter: "audioonly", quality: "highestaudio" });
+        streamData = { stream, type: "opus" };
+      } else {
+        return interaction.editReply("⚠️ 再生できる形式のURLじゃないみたい！");
+      }
     }
+
+    const info = await play.video_info(url).catch(() => null);
+    const title = info?.video_details?.title || "不明なタイトル";
+
+    guildQueue.songs.push({
+      title,
+      url,
+      stream: streamData.stream,
+      type: streamData.type
+    });
+
+    if (!guildQueue.playing) {
+      guildQueue.playing = true;
+      guildQueue.connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: guildId,
+        adapterCreator: interaction.guild.voiceAdapterCreator
+      });
+      playNext(guildId);
+    }
+
+    await interaction.editReply(`🎶 **${title}** を再生キューに追加したよ！`);
+  } catch (err) {
+    console.error("Play Command Error:", err);
+    if (!interaction.replied && !interaction.deferred)
+      return interaction.reply({ content: "💥 エラーが発生したみたい…", ephemeral: true });
+    await interaction.editReply("💥 再生中にエラーが起きたよ！");
   }
+}
 
   // --- /skip ---
   if (interaction.commandName === "skip") {
@@ -435,11 +446,12 @@ function playNext(guildId) {
   guildQueue.player.play(resource);
   guildQueue.connection.subscribe(guildQueue.player);
 
+  guildQueue.player.removeAllListeners(AudioPlayerStatus.Idle); // 👈 二重登録防止
   guildQueue.player.on(AudioPlayerStatus.Idle, () => {
     guildQueue.songs.shift();
     playNext(guildId);
   });
-  }
+}
 
 // --- 誰もいなくなったら自動退出 ---
 client.on('voiceStateUpdate', async (oldState, newState) => {
