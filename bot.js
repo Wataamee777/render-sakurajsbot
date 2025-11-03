@@ -358,7 +358,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   // --- /skip ---
-  else if (interaction.commandName === 'skip') {
+  if (interaction.commandName === 'skip') {
     const guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue || guildQueue.songs.length <= 1)
       return interaction.reply('⚠️ スキップできる曲がないよ！');
@@ -367,7 +367,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   // --- /stop ---
-  else if (interaction.commandName === 'stop') {
+  if (interaction.commandName === 'stop') {
     const guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue) return interaction.reply('⚠️ 何も再生してないよ！');
     guildQueue.songs = [];
@@ -378,7 +378,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   // --- /playlist ---
-  else if (interaction.commandName === 'playlist') {
+  if (interaction.commandName === 'playlist') {
     const guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue || guildQueue.songs.length === 0)
       return interaction.reply('📭 再生中のプレイリストは空っぽ！');
@@ -388,7 +388,7 @@ client.on('interactionCreate', async interaction => {
       .join('\n');
     interaction.reply(`🎵 **再生キュー:**\n${list}`);
   }
-}
+});
 
 // --- 実際に再生する関数 ---
 function playNext(guildId) {
