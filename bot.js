@@ -309,6 +309,9 @@ client.on('interactionCreate', async interaction => {
     // 💨 deferを最初に即実行
     await interaction.deferReply();
 
+    let fixedUrl = url.replace('youtu.be/', 'www.youtube.com/watch?v=');
+
+
     const guildId = interaction.guild.id;
     const voiceChannel = interaction.member?.voice?.channel;
     if (!voiceChannel)
