@@ -195,25 +195,25 @@ const commands = [
   new SlashCommandBuilder()
     .setName('unpin')
     .setDescription('チャンネルの固定メッセージを解除します')
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
   
   // --- 音楽コマンド追加 ---
-new SlashCommandBuilder()
-  .setName('play')
-  .setDescription('🎶 音楽を再生します')
-  .addStringOption(opt => opt.setName('url').setDescription('YouTubeまたはSpotifyのURL').setRequired(true)),
+  new SlashCommandBuilder()
+    .setName('play')
+    .setDescription('🎶 音楽を再生します')
+    .addStringOption(opt => opt.setName('url').setDescription('YouTubeまたはSpotifyのURL').setRequired(true)),
 
-new SlashCommandBuilder()
-  .setName('skip')
-  .setDescription('⏭️ 現在の曲をスキップします'),
+  new SlashCommandBuilder()
+    .setName('skip')
+    .setDescription('⏭️ 現在の曲をスキップします'),
 
-new SlashCommandBuilder()
-  .setName('stop')
-  .setDescription('🛑 現在のキューの再生を停止して退出します'),
+  new SlashCommandBuilder()
+    .setName('stop')
+    .setDescription('🛑 現在のキューの再生を停止して退出します'),
 
-new SlashCommandBuilder()
-  .setName('playlist')
-  .setDescription('📜 現在の再生キューを表示します'),
+  new SlashCommandBuilder()
+    .setName('playlist')
+    .setDescription('📜 現在の再生キューを表示します')
 
 ].map(c => c.toJSON());
 
