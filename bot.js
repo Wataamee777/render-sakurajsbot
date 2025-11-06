@@ -324,7 +324,7 @@ client.on('interactionCreate', async interaction => {
       await interaction.deferReply({ ephemeral: false }).catch(console.error);
 
     if (!voiceChannel)
-      return interaction.editreply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
+      return interaction.editReply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
 
     let guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue) {
