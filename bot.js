@@ -308,7 +308,7 @@ client.on('interactionCreate', async interaction => {
     const url = interaction.options.getString('url');
     const voiceChannel = interaction.member?.voice?.channel;
     if (interaction.replied || interaction.deferred) return;
-      await interaction.deferReply();
+      await interaction.deferReply({ ephemeral: false }).catch(console.error);
 
     if (!voiceChannel)
       return interaction.editreply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
@@ -333,7 +333,11 @@ client.on('interactionCreate', async interaction => {
 
       const info = await ytdl.getInfo(url);
       const title = info.videoDetails.title;
-      const stream = ytdl.downloadFromInfo(info, { filter: 'audioonly', quality: 'highestaudio' });
+      const stream = ytdl(url, {
+        filter: 'audioonly',
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25, // ← バッファ拡大で安定化
+      });
 
       guildQueue.songs.push({
         title,
@@ -406,8 +410,11 @@ function playNext(guildId) {
   guildQueue.connection.subscribe(guildQueue.player);
 
   guildQueue.player.once(AudioPlayerStatus.Idle, () => {
-    guildQueue.songs.shift();
-    playNext(guildId);
+    if (!song.stream) {
+      console.error("ストリームが生成されてない");
+      guildQueue.songs.shift();
+      return playNext(guildId);
+    }
   });
 }
 
@@ -422,7 +429,8 @@ client.on('voiceStateUpdate', (oldState, newState) => {
 
   // チャンネルに誰もいなくなった場合
   if (voiceChannel && voiceChannel.members.filter(m => !m.user.bot).size === 0) {
-    connection.destroy();
+    if (connection.state.status !== 'destroyed')
+      connection.destroy();
     queues.delete(oldState.guild.id);
     console.log(`👋 ${voiceChannel.name} から切断しました（誰もいなくなったため）`);
   }
