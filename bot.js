@@ -44,8 +44,21 @@ const queues = new Map();
 
 // --- Discord Client ---
 export const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ],
+  rest: {
+    rejectOnRateLimit: (info) => {
+      console.warn('🚨 Rate limit hit!', info);
+      // trueを返すと例外throw → デバッグしやすくなる
+      return true;
+    }
+  }
 });
+
 
 // --- IP ユーティリティ ---
 export function hashIP(ip) {
