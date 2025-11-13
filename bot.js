@@ -467,7 +467,7 @@ client.on('messageCreate', async message => {
     const embed = new EmbedBuilder()
       .setDescription(pinData.content)
       .setColor(0x00AE86)
-      .setFooter({ text: `📌 投稿者: ${pinData.author_name || '不明'}` })
+      .setFooter({ text: `📌 投稿者: ${pinData.author_name}` })
       .setTimestamp();
 
     const sent = await message.channel.send({ embeds: [embed] });
