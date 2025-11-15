@@ -110,7 +110,10 @@ app.get('/auth/callback', async (req, res) => {
     res.status(500).send('認証エラー');
   }
 });
-  
+
+const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
+
 app.get('/api', async (req, res) => {
   try {
 
