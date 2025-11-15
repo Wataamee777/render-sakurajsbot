@@ -1,6 +1,7 @@
+// bot.js
 import crypto from 'crypto';
 import fetch from 'node-fetch';
-import { 
+import {
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
@@ -12,10 +13,16 @@ import {
   ButtonStyle,
   PermissionsBitField
 } from 'discord.js';
-import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, getVoiceConnection, NoSubscriberBehavior } from '@discordjs/voice';
+import {
+  joinVoiceChannel,
+  createAudioPlayer,
+  createAudioResource,
+  AudioPlayerStatus,
+  getVoiceConnection,
+  NoSubscriberBehavior
+} from '@discordjs/voice';
 import ytdl from 'ytdl-core';
-import pkg from 'pg';
-const { Pool } = pkg;
+import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, insertPinned, updatePinnedMessage, deletePinned } from './db.js';
 
 const {
   DISCORD_BOT_TOKEN,
@@ -25,24 +32,16 @@ const {
   DISCORD_ROLE_ID,
   DISCORD_CHAT_CHANNEL_ID,
   DISCORD_MOD_LOG_CHANNEL_ID,
-  NEON_DB_CONNECTION_STRING,
   VPN_API_KEY,
   REDIRECT_URI
 } = process.env;
 
-if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID || !DISCORD_ROLE_ID || !NEON_DB_CONNECTION_STRING || !VPN_API_KEY || !REDIRECT_URI) {
+if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID || !DISCORD_ROLE_ID || !VPN_API_KEY || !REDIRECT_URI) {
   throw new Error('環境変数が足りてないよ！');
 }
 
-// --- PostgreSQL Pool ---
-const pool = new Pool({
-  connectionString: NEON_DB_CONNECTION_STRING,
-  ssl: { rejectUnauthorized: true }
-});
-
 const queues = new Map();
 
-// --- Discord Client ---
 export const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -53,14 +52,12 @@ export const client = new Client({
   rest: {
     rejectOnRateLimit: (info) => {
       console.warn('🚨 Rate limit hit!', info);
-      // trueを返すと例外throw → デバッグしやすくなる
       return true;
     }
   }
 });
 
-
-// --- IP ユーティリティ ---
+// --- IP helpers ---
 export function hashIP(ip) {
   return crypto.createHash('sha256').update(ip).digest('hex');
 }
@@ -91,17 +88,18 @@ export async function checkVPN(ip) {
     const res = await fetch(`https://vpnapi.io/api/${ip}?key=${VPN_API_KEY}`);
     const data = await res.json();
     return data.security && (data.security.vpn || data.security.proxy || data.security.tor || data.security.relay);
-  } catch {
+  } catch (e) {
+    console.warn('VPN check failed', e);
     return false;
   }
 }
 
-// --- OAuth コールバック処理 ---
+// --- OAuth callback ---
 export async function handleOAuthCallback({ code, ip }) {
   if (!code || !ip) throw new Error('認証情報が不正です');
   const ipHash = hashIP(ip);
 
-  // --- トークン取得 ---
+  // token
   const basicAuth = Buffer.from(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`).toString('base64');
   const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
     method: 'POST',
@@ -111,59 +109,52 @@ export async function handleOAuthCallback({ code, ip }) {
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) throw new Error('トークン取得失敗');
 
-  // --- ユーザー情報取得 ---
   const userRes = await fetch('https://discord.com/api/users/@me', {
     headers: { Authorization: `Bearer ${tokenData.access_token}` }
   });
   const user = await userRes.json();
   if (!user.id) throw new Error('ユーザー情報取得失敗');
 
-  // --- VPN チェック ---
   const isVpn = await checkVPN(ip);
   if (isVpn) {
-    await pool.query(`INSERT INTO auth_logs(discord_id, event_type, detail) VALUES($1,'vpn_detected',$2)`, [user.id, `IP:${ip}`]);
+    await insertAuthLog(user.id, 'vpn_detected', `IP:${ip}`);
     throw new Error('VPN検知');
   }
 
-  // --- IP 重複チェック ---
-  const ipDup = await pool.query(`SELECT discord_id FROM user_ips WHERE ip_hash=$1`, [ipHash]);
-  if (ipDup.rowCount > 0 && ipDup.rows[0].discord_id !== user.id) {
-    await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'sub_account_blocked',$2)`, [user.id, `IP重複 IP:${ipHash}`]);
+  const ownerDiscordId = await getUserIpOwner(ipHash);
+  if (ownerDiscordId && ownerDiscordId !== user.id) {
+    await insertAuthLog(user.id, 'sub_account_blocked', `IP重複 IP:${ipHash}`);
     throw new Error('サブアカウント検知');
   }
 
-  // --- DB 登録 ---
-  await pool.query(`
-    INSERT INTO users(discord_id, username)
-    VALUES($1,$2)
-    ON CONFLICT (discord_id) DO UPDATE SET username=EXCLUDED.username
-  `, [user.id, user.username]);
+  // DB upsert user
+  await upsertUser(user.id, user.username);
 
-  if (ipDup.rowCount === 0) {
-    await pool.query(`INSERT INTO user_ips(discord_id,ip_hash) VALUES($1,$2)`, [user.id, ipHash]);
+  if (!ownerDiscordId) {
+    await insertUserIpIfNotExists(user.id, ipHash);
   }
 
-  await pool.query(`INSERT INTO auth_logs(discord_id,event_type,detail) VALUES($1,'auth_success',$2)`, [user.id, `認証成功 IP:${ipHash}`]);
+  await insertAuthLog(user.id, 'auth_success', `認証成功 IP:${ipHash}`);
 
-  // --- ロール付与 & チャンネル通知 ---
+  // role & notifications
   const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
   const member = await guild.members.fetch(user.id);
-  if (!member.roles.cache.has(DISCORD_ROLE_ID)) await member.roles.add(DISCORD_ROLE_ID);
+  if (!member.roles.cache.has(DISCORD_ROLE_ID)) await member.roles.add(DISCORD_ROLE_ID).catch(() => {});
 
   try {
     const chatChan = await guild.channels.fetch(DISCORD_CHAT_CHANNEL_ID);
-    if (chatChan?.isTextBased()) chatChan.send(`🎉 ようこそ <@${user.id}> さん！`);
-  } catch { /* 無視 */ }
+    if (chatChan?.isTextBased()) chatChan.send(`🎉 ようこそ <@${user.id}> さん！`).catch(() => {});
+  } catch {}
 
   try {
     const modChan = await guild.channels.fetch(DISCORD_MOD_LOG_CHANNEL_ID);
-    if (modChan?.isTextBased()) modChan.send(`📝 認証成功: <@${user.id}> (${user.username}) IPハッシュ: \`${ipHash}\``);
-  } catch { /* 無視 */ }
+    if (modChan?.isTextBased()) modChan.send(`📝 認証成功: <@${user.id}> (${user.username}) IPハッシュ: \`${ipHash}\``).catch(() => {});
+  } catch {}
 
   return `<h1>認証完了 🎉 ${user.username} さん</h1>`;
 }
 
-// --- スラッシュコマンド ---
+// --- commands registration ---
 const commands = [
   new SlashCommandBuilder()
     .setName('auth')
@@ -187,8 +178,7 @@ const commands = [
     .setName('unpin')
     .setDescription('チャンネルの固定メッセージを解除します')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-  
-  // --- 音楽コマンド追加 ---
+
   new SlashCommandBuilder()
     .setName('play')
     .setDescription('🎶 音楽を再生します')
@@ -220,17 +210,21 @@ const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
   }
 })();
 
-// --- /pin / /unpin の DB テーブル ---
-async function ensurePinTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS pinned_messages (
-      channel_id TEXT PRIMARY KEY,
-      message_id TEXT NOT NULL
-    );
-  `);
+// pinned table check note: with Supabase you'd usually create tables via migration
+async function ensurePinnedTableExists() {
+  // try to SELECT to detect table existence
+  try {
+    const { error } = await supabase.from('pinned_messages').select('channel_id').limit(1);
+    if (error) {
+      console.warn('pinned_messages table check failed. Make sure migration created the table.', error);
+    }
+  } catch (e) {
+    console.warn('pinned_messages table check unexpected error', e);
+  }
 }
-ensurePinTable();
+ensurePinnedTableExists();
 
+// interaction handler
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
@@ -266,7 +260,7 @@ client.on('interactionCreate', async interaction => {
         )
         .setTimestamp();
 
-      const reportChannel = await client.channels.fetch(1208987840462200882);
+      const reportChannel = await client.channels.fetch(1208987840462200882).catch(() => null);
       if (!reportChannel?.isTextBased()) return interaction.editReply('❌ 通報チャンネルが見つかりません');
 
       if (file) await reportChannel.send({ embeds: [reportEmbed], files: [{ attachment: file.url }] });
@@ -279,34 +273,31 @@ client.on('interactionCreate', async interaction => {
       const msg = interaction.options.getString('msg');
       const channelId = interaction.channel.id;
 
-      const res = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id=$1', [channelId]);
-      if (res.rowCount > 0)
+      const existing = await getPinnedByChannel(channelId);
+      if (existing)
         return interaction.reply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
 
       const embed = new EmbedBuilder()
-       .setDescription(msg)
-       .setColor(0x00AE86)
-       .setFooter({ text: `📌 投稿者: 'owner' || '不明'` })
-       .setTimestamp();
+        .setDescription(msg)
+        .setColor(0x00AE86)
+        .setFooter({ text: `📌 投稿者: ${interaction.user.tag}` })
+        .setTimestamp();
 
       const sent = await interaction.channel.send({ embeds: [embed] });
-      await pool.query(
-        'INSERT INTO pinned_messages(channel_id, message_id, content, author_name) VALUES($1, $2, $3, $4)',
-        [channelId, sent.id, msg, interaction.user.tag]
-      );
+      await insertPinned(channelId, sent.id, msg, interaction.user.tag);
 
       return interaction.reply({ content: '📌 メッセージを固定しました！', flags: 64 });
     }
 
     if (commandName === 'unpin') {
       const channelId = interaction.channel.id;
-      const res = await pool.query('SELECT message_id FROM pinned_messages WHERE channel_id=$1', [channelId]);
-      if (res.rowCount === 0) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', flags: 64 });
+      const existing = await getPinnedByChannel(channelId);
+      if (!existing) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', flags: 64 });
 
-      const pinnedMsgId = res.rows[0].message_id;
+      const pinnedMsgId = existing.message_id;
       const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
       if (msg) await msg.delete().catch(() => {});
-      await pool.query('DELETE FROM pinned_messages WHERE channel_id=$1', [channelId]);
+      await deletePinned(channelId);
 
       return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', flags: 64 });
     }
@@ -315,13 +306,13 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.replied && !interaction.deferred)
       interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
   }
-  
+
   // --- /play ---
   if (interaction.commandName === 'play') {
     const url = interaction.options.getString('url');
     const voiceChannel = interaction.member?.voice?.channel;
     if (interaction.replied || interaction.deferred) return;
-      await interaction.deferReply({ ephemeral: false }).catch(console.error);
+    await interaction.deferReply({ ephemeral: false }).catch(console.error);
 
     if (!voiceChannel)
       return interaction.editReply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
@@ -339,7 +330,6 @@ client.on('interactionCreate', async interaction => {
     }
 
     try {
-      // 🎵 YouTube音声ストリーム取得
       if (!ytdl.validateURL(url)) {
         return interaction.editReply('⚠️ 有効なYouTube URLを入れてね！');
       }
@@ -349,13 +339,14 @@ client.on('interactionCreate', async interaction => {
       const stream = ytdl(url, {
         filter: 'audioonly',
         quality: 'highestaudio',
-        highWaterMark: 1 << 25, // ← バッファ拡大で安定化
+        highWaterMark: 1 << 25,
       });
 
       guildQueue.songs.push({
         title,
         url,
         stream,
+        type: 'opus'
       });
 
       if (!guildQueue.playing) {
@@ -408,7 +399,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// --- 実際に再生する関数 ---
+// playNext
 function playNext(guildId) {
   const guildQueue = queues.get(guildId);
   if (!guildQueue || guildQueue.songs.length === 0) {
@@ -418,66 +409,79 @@ function playNext(guildId) {
   }
 
   const song = guildQueue.songs[0];
+  if (!song || !song.stream) {
+    console.error("ストリームが生成されてない or song missing");
+    guildQueue.songs.shift();
+    return playNext(guildId);
+  }
+
   const resource = createAudioResource(song.stream);
   guildQueue.player.play(resource);
   guildQueue.connection.subscribe(guildQueue.player);
 
-  guildQueue.player.once(AudioPlayerStatus.Idle, () => {
-    if (!song.stream) {
-      console.error("ストリームが生成されてない");
+  guildQueue.player.removeAllListeners(AudioPlayerStatus.Idle);
+  guildQueue.player.on(AudioPlayerStatus.Idle, () => {
+    guildQueue.songs.shift();
+    playNext(guildId);
+  });
+
+  guildQueue.player.on('error', (err) => {
+    console.error('Audio player error', err);
+    // drop current and continue
+    try {
       guildQueue.songs.shift();
-      return playNext(guildId);
-    }
+      playNext(guildId);
+    } catch (e) { console.error(e); }
   });
 }
 
-// 誰もいなくなったら自動で切断
+// auto-disconnect when empty
 client.on('voiceStateUpdate', (oldState, newState) => {
-  // Botが接続しているボイスチャンネル
-  const connection = getVoiceConnection(oldState.guild.id);
+  const guildId = (oldState.guild || newState.guild).id;
+  const connection = getVoiceConnection(guildId);
   if (!connection) return;
 
-  const channel = connection.joinConfig.channelId;
-  const voiceChannel = oldState.guild.channels.cache.get(channel);
+  const channelId = connection.joinConfig.channelId;
+  const voiceChannel = (oldState.guild || newState.guild).channels.cache.get(channelId);
+  if (!voiceChannel) return;
 
-  // チャンネルに誰もいなくなった場合
-  if (voiceChannel && voiceChannel.members.filter(m => !m.user.bot).size === 0) {
-    if (connection.state.status !== 'destroyed')
-      connection.destroy();
-    queues.delete(oldState.guild.id);
+  const nonBotMembers = voiceChannel.members.filter(m => !m.user.bot);
+  if (nonBotMembers.size === 0) {
+    if (connection.state?.status !== 'destroyed') connection.destroy();
+    queues.delete(guildId);
     console.log(`👋 ${voiceChannel.name} から切断しました（誰もいなくなったため）`);
   }
 });
 
-
+// pinned_messages update on messageCreate
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
   const channelId = message.channel.id;
 
+  // avoid shards other than 0 updating DB
   if (client.shard && client.shard.ids[0] !== 0) return;
 
-  const res = await pool.query('SELECT * FROM pinned_messages WHERE channel_id=$1', [channelId]);
-  if (res.rowCount === 0) return;
-  const pinData = res.rows[0];
-
   try {
+    const pinData = await getPinnedByChannel(channelId);
+    if (!pinData) return;
+
     const oldMsg = await message.channel.messages.fetch(pinData.message_id).catch(() => null);
-    if (oldMsg) await oldMsg.delete();
+    if (oldMsg) await oldMsg.delete().catch(() => {});
 
     const embed = new EmbedBuilder()
       .setDescription(pinData.content)
       .setColor(0x00AE86)
-      .setFooter({ text: `📌 投稿者: ${pinData.author_name}` })
+      .setFooter({ text: `📌 投稿者: ${pinData.author_name || '不明'}` })
       .setTimestamp();
 
     const sent = await message.channel.send({ embeds: [embed] });
-    await pool.query('UPDATE pinned_messages SET message_id=$1, updated_at=NOW() WHERE channel_id=$2', [sent.id, channelId]);
+    await updatePinnedMessage(channelId, sent.id);
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
 });
 
-// --- 起動 ---
+// ready
 client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
   const shardInfo = client.shard ? `${client.shard.ids[0] + 1}/${client.shard.count}` : '1/1';
@@ -497,4 +501,4 @@ client.once('ready', async () => {
   }, 10000);
 });
 
-client.login(DISCORD_BOT_TOKEN);
+client.login(DISCORD_BOT_TOKEN)
