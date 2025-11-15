@@ -2,8 +2,15 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 dotenv.config();
-
 import { handleOAuthCallback } from './bot.js';
+import { Client, GatewayIntentBits } from "discord.js";
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates // ← VC人数取得に必須
+  ],
+});
 
 const app = express();
 app.use(bodyParser.json());
