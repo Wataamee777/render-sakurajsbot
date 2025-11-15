@@ -111,35 +111,47 @@ app.get('/auth/callback', async (req, res) => {
     res.status(500).send('認証エラー');
   }
 });
-
-const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
-const GUILD_ID = process.env.DISCORD_GUILD_ID;
-
+  
 app.get('/api', async (req, res) => {
   try {
-    // --- ギルド情報取得 ---
-    const guildRes = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}`, {
-      headers: { Authorization: `Bot ${DISCORD_TOKEN}` }
-    });
+
+    // --- Guild info ---
+    const guildRes = await fetch(
+      `https://discord.com/api/v10/guilds/${GUILD_ID}?with_counts=true`,
+      { headers: { Authorization: `Bot ${DISCORD_TOKEN}` } }
+    );
+
     if (!guildRes.ok) throw new Error(`Guild fetch failed: ${guildRes.status}`);
     const guildData = await guildRes.json();
 
-    // --- オーナー情報取得 ---
-    const ownerRes = await fetch(`https://discord.com/api/v10/users/${guildData.owner_id}`, {
-      headers: { Authorization: `Bot ${DISCORD_TOKEN}` }
-    });
+    // --- Owner info ---
+    const ownerRes = await fetch(
+      `https://discord.com/api/v10/users/${guildData.owner_id}`,
+      { headers: { Authorization: `Bot ${DISCORD_TOKEN}` } }
+    );
+
     if (!ownerRes.ok) throw new Error(`Owner fetch failed: ${ownerRes.status}`);
     const ownerData = await ownerRes.json();
 
-    // --- VC 接続人数取得 ---
-    const voiceRes = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}/voice-states`, {
-      headers: { Authorization: `Bot ${DISCORD_TOKEN}` }
-    });
-    if (!voiceRes.ok) throw new Error(`Voice fetch failed: ${voiceRes.status}`);
-    const voiceData = await voiceRes.json();
+    // --- VC info from bot cache ---
+    const guild = client.guilds.cache.get(GUILD_ID);
 
-    // ボット除外
-    const vcCount = voiceData.filter(v => !v.member.user.bot).length;
+    let totalVC = 0;
+    let vcMap = {};
+
+    if (guild) {
+      const voiceMembers = guild.members.cache.filter(
+        m => m.voice.channelId !== null
+      );
+
+      totalVC = voiceMembers.size;
+
+      voiceMembers.forEach(member => {
+        const cid = member.voice.channelId;
+        if (!vcMap[cid]) vcMap[cid] = [];
+        vcMap[cid].push(member.user.username);
+      });
+    }
 
     res.json({
       status: 200,
@@ -148,17 +160,23 @@ app.get('/api', async (req, res) => {
         name: guildData.name,
         id: guildData.id,
         owner: guildData.owner_id,
-        icon: guildData.icon ? `https://cdn.discordapp.com/icons/${guildData.id}/${guildData.icon}.png` : null,
+        icon: guildData.icon
+          ? `https://cdn.discordapp.com/icons/${guildData.id}/${guildData.icon}.png`
+          : null,
         member: guildData.approximate_member_count || 0,
         online: guildData.approximate_presence_count || 0,
-        voice: vcCount
+        voice: totalVC,
+        voice_detail: vcMap
       },
       owner: {
         name: ownerData.username,
         id: ownerData.id,
-        icon: ownerData.avatar ? `https://cdn.discordapp.com/avatars/${ownerData.id}/${ownerData.avatar}.png` : null
+        icon: ownerData.avatar
+          ? `https://cdn.discordapp.com/avatars/${ownerData.id}/${ownerData.avatar}.png`
+          : null
       }
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ status: 500, error: err.message });
