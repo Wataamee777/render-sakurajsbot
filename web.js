@@ -29,7 +29,6 @@ app.get('/auth/', (req, res) => {
     <body>
       <div class="container">
         <h1>認証ページへようこそ</h1>
-        <p>Discordで認証</p>
         <a href="https://discord.com/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}&response_type=code&scope=identify">Discordで認証</a>
       </div>
     </body>
