@@ -112,4 +112,49 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
+const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+const GUILD_ID = process.env.GUILD_ID;
+
+app.get('/api', async (req, res) => {
+  try {
+    // ギルド情報取得
+    const guildResp = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}?with_counts=true`, {
+      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` }
+    });
+    const guildData = await guildResp.json();
+
+    // オーナー情報取得
+    const ownerId = guildData.owner_id;
+    const ownerResp = await fetch(`https://discord.com/api/v10/users/${ownerId}`, {
+      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` }
+    });
+    const ownerData = await ownerResp.json();
+
+    res.json({
+      status: "200",
+      timestamp: new Date().toISOString(),
+      guild: {
+        name: guildData.name,
+        id: guildData.id,
+        owner: guildData.owner_id,
+        icon: guildData.icon
+          ? `https://cdn.discordapp.com/icons/${guildData.id}/${guildData.icon}.png`
+          : null,
+        member: guildData.approximate_member_count,
+        online: guildData.approximate_presence_count
+      },
+      owner: {
+        name: ownerData.username,
+        id: ownerData.id,
+        icon: ownerData.avatar
+          ? `https://cdn.discordapp.com/avatars/${ownerData.id}/${ownerData.avatar}.png`
+          : null
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "500", error: err.message });
+  }
+});
+
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
