@@ -3,7 +3,7 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { handleOAuthCallback } from './botだよ.js';
+import { handleOAuthCallback } from './bot.js';
 
 const app = express();
 app.use(bodyParser.json());
