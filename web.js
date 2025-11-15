@@ -113,12 +113,12 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
-const GUILD_ID = process.env.GUILD_ID;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
 
 app.get('/api', async (req, res) => {
   try {
     // --- ギルド情報取得 ---
-    const guildRes = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}?with_counts=true`, {
+    const guildRes = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}`, {
       headers: { Authorization: `Bot ${DISCORD_TOKEN}` }
     });
     if (!guildRes.ok) throw new Error(`Guild fetch failed: ${guildRes.status}`);
