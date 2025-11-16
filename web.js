@@ -135,7 +135,7 @@ app.get('/api', async (req, res) => {
 
     // --- Owner info ---
     const ownerRes = await fetch(
-      `https://discord.com/api/v10/users/${guildData.owner_id}`,
+      `https://discord.com/api/v10/users/1208358513580052500`,
       { headers: { Authorization: `Bot ${DISCORD_TOKEN}` } }
     );
 
