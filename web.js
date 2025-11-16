@@ -153,7 +153,7 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
 
 // JST 時刻
 const nowJST = () =>
