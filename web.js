@@ -152,7 +152,7 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
-const GUILD_ID = process.env.GUILD_ID;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 // JST 時刻
@@ -170,7 +170,7 @@ app.get("/api", async (req, res) => {
 
     // --- オーナー情報 ---
     const ownerRes = await fetch(
-      `https://discord.com/api/v10/users/${guildData.owner_id}`,
+      `https://discord.com/api/v10/users/1208358513580052500`,
       { headers: { Authorization: `Bot ${DISCORD_TOKEN}` } }
     );
     if (!ownerRes.ok) throw new Error(`Owner fetch failed: ${ownerRes.status}`);
