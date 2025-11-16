@@ -19,27 +19,68 @@ const PORT = process.env.PORT || 3000;
 // 認証ページ
 app.get('/auth/', (req, res) => {
   res.send(`
-    <!DOCTYPE html>
-    <html lang="ja">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Discord認証</title>
-      <style>
-        body { font-family: 'Segoe UI', sans-serif; background:#36393F; color:#FFF; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; margin:0; }
-        h1 { color:#7289DA; }
-        a.button { display:inline-block; padding:15px 25px; margin-top:20px; font-size:18px; font-weight:bold; color:#FFF; background:#7289DA; border-radius:8px; text-decoration:none; transition:0.2s; }
-        a.button:hover { background:#5b6eae; }
-        .container { text-align:center; max-width:400px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>認証ページへようこそ</h1>
-        <a href="https://discord.com/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}&response_type=code&scope=identify">Discordで認証</a>
-      </div>
-    </body>
-    </html>
+  <!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>さくら雑談王国認証ページ</title>
+<!-- Discord風フォント読み込み -->
+<link href="https://fonts.googleapis.com/css2?family=gg-sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body {
+    font-family: 'gg-sans', 'Segoe UI', sans-serif;
+    background: #262626; /* 濃い背景 */
+    color: #FFFFFF;       /* 文字白 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  h1 {
+    text-align: center;
+    color: #FFFFFF;
+  }
+
+  a.button {
+    display: inline-block;
+    padding: 15px 25px;
+    margin-top: 20px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #FFFFFF;
+    background: #60B6BF;
+    border-radius: 0;           /* 四角 */
+    border: 2px solid #FFFFFF;  /* 白ボーダー */
+    text-decoration: none;
+    box-shadow: 4px 4px 0 #FFFFFF; /* 右下に白影 */
+    transition: 0.2s;
+  }
+
+  a.button:hover {
+    background: #BF73A4;
+    box-shadow: 4px 4px 0 #60B6BF; /* ホバー時に反転 */
+  }
+
+  .container {
+    text-align: center;
+    max-width: 400px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>さくら雑談王国認証ページへようこそ</h1>
+    <a href="https://discord.com/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}&response_type=code&scope=identify" class="button">
+      Discordで認証
+    </a>
+  </div>
+</body>
+</html>
+
   `);
 });
 
