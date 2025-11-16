@@ -435,21 +435,26 @@ function playNext(guildId) {
   });
 }
 
-// auto-disconnect when empty
-client.on('voiceStateUpdate', (oldState, newState) => {
-  const guildId = (oldState.guild || newState.guild).id;
-  const connection = getVoiceConnection(guildId);
-  if (!connection) return;
+// VC 状態キャッシュ（ギルドID → Map<userId, channelId>）
+export const voiceStates = new Map();
 
-  const channelId = connection.joinConfig.channelId;
-  const voiceChannel = (oldState.guild || newState.guild).channels.cache.get(channelId);
-  if (!voiceChannel) return;
+client.on("voiceStateUpdate", (oldState, newState) => {
+  const guildId = newState.guild.id;
 
-  const nonBotMembers = voiceChannel.members.filter(m => !m.user.bot);
-  if (nonBotMembers.size === 0) {
-    if (connection.state?.status !== 'destroyed') connection.destroy();
-    queues.delete(guildId);
-    console.log(`👋 ${voiceChannel.name} から切断しました（誰もいなくなったため）`);
+  if (!voiceStates.has(guildId)) {
+    voiceStates.set(guildId, new Map());
+  }
+
+  const stateMap = voiceStates.get(guildId);
+
+  // 退出
+  if (oldState.channelId && !newState.channelId) {
+    stateMap.delete(oldState.id);
+  }
+
+  // 入室 or 移動
+  if (newState.channelId) {
+    stateMap.set(newState.id, newState.channelId);
   }
 });
 
