@@ -196,8 +196,8 @@ app.get("/api", async (req, res) => {
         icon: guildData.icon
           ? `https://cdn.discordapp.com/icons/${guildData.id}/${guildData.icon}.png`
           : null,
-        member: guildData.approximate_member_count || 0,
-        online: guildData.approximate_presence_count || 0,
+        member: guildData.approximate_member_count,
+        online: guildData.approximate_presence_count,
         voice: vcMap.size,
         voice_detail
       },
