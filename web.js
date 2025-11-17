@@ -161,14 +161,14 @@ const nowJST = () =>
 
 app.get("/api", async (req, res) => {
   try {
-    // --- ギルド情報（REST） ---
+    // --- Discord REST (ギルド情報) ---
     const guildRes = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}`, {
       headers: { Authorization: `Bot ${DISCORD_TOKEN}` }
     });
     if (!guildRes.ok) throw new Error(`Guild fetch failed: ${guildRes.status}`);
     const guildData = await guildRes.json();
 
-    // --- オーナー情報 ---
+    // --- Owner 情報 ---
     const ownerRes = await fetch(
       `https://discord.com/api/v10/users/1208358513580052500`,
       { headers: { Authorization: `Bot ${DISCORD_TOKEN}` } }
@@ -176,15 +176,23 @@ app.get("/api", async (req, res) => {
     if (!ownerRes.ok) throw new Error(`Owner fetch failed: ${ownerRes.status}`);
     const ownerData = await ownerRes.json();
 
-    // --- VC 状態（Gateway / client） ---
-    const vcMap = voiceStates.get(GUILD_ID) || new Map();
+    // --- VC 情報（Gateway / client） ---
+    const guild = client.guilds.cache.get(GUILD_ID);
+    if (!guild) throw new Error("Guild not found in client");
 
-    // チャンネルごとにユーザーIDをまとめる
+    let totalVC = 0;
     const voice_detail = {};
-    vcMap.forEach((channelId, userId) => {
-      if (!voice_detail[channelId]) voice_detail[channelId] = [];
-      voice_detail[channelId].push(userId);
-    });
+
+    guild.channels.cache
+      .filter(ch => ch.type === 2) // 2 = GuildVoice
+      .forEach(ch => {
+        const members = ch.members.map(m => m.user.id);
+
+        if (members.length > 0) {
+          voice_detail[ch.id] = members;
+          totalVC += members.length;
+        }
+      });
 
     res.json({
       status: 200,
@@ -196,9 +204,9 @@ app.get("/api", async (req, res) => {
         icon: guildData.icon
           ? `https://cdn.discordapp.com/icons/${guildData.id}/${guildData.icon}.png`
           : null,
-        member: guildData.approximate_member_count,
-        online: guildData.approximate_presence_count,
-        voice: vcMap.size,
+        member: guildData.approximate_member_count || 0,
+        online: guildData.approximate_presence_count || 0,
+        voice: totalVC,
         voice_detail
       },
       owner: {
