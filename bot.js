@@ -435,8 +435,8 @@ function playNext(guildId) {
   });
 }
 
-// VC 状態キャッシュ（ギルドID → Map<userId, channelId>）
-export const voiceStates = new Map();
+// VC 状態を保持
+export const voiceStates = new Map(); // guildId → Map(userId → channelId)
 
 client.on("voiceStateUpdate", (oldState, newState) => {
   const guildId = newState.guild.id;
@@ -445,17 +445,16 @@ client.on("voiceStateUpdate", (oldState, newState) => {
     voiceStates.set(guildId, new Map());
   }
 
-  const stateMap = voiceStates.get(guildId);
+  const guildMap = voiceStates.get(guildId);
 
   // 退出
-  if (oldState.channelId && !newState.channelId) {
-    stateMap.delete(oldState.id);
+  if (!newState.channelId) {
+    guildMap.delete(newState.id);
+    return;
   }
 
   // 入室 or 移動
-  if (newState.channelId) {
-    stateMap.set(newState.id, newState.channelId);
-  }
+  guildMap.set(newState.id, newState.channelId);
 });
 
 // pinned_messages update on messageCreate
