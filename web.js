@@ -226,4 +226,49 @@ app.get("/api", async (req, res) => {
   }
 });
 
+app.get("/api/events", async (req, res) => {
+  try {
+    const eventsRes = await fetch(
+      `https://discord.com/api/v10/guilds/${GUILD_ID}/scheduled-events?with_user_count=true`,
+      { headers: { Authorization: `Bot ${DISCORD_TOKEN}` } }
+    );
+
+    if (!eventsRes.ok) {
+      throw new Error(`Events fetch failed: ${eventsRes.status}`);
+    }
+
+    const events = await eventsRes.json();
+
+    // 整形（見やすくしたい場合）
+    const formatted = events.map(ev => ({
+      id: ev.id,
+      name: ev.name,
+      description: ev.description,
+      creator_id: ev.creator_id,
+      scheduled_start: ev.scheduled_start_time,
+      scheduled_end: ev.scheduled_end_time,
+      status: ev.status, // 1: Scheduled, 2: Active, 3: Completed, 4: Canceled
+      entity_type: ev.entity_type, // 1: Stage, 2: Voice, 3: External
+      user_count: ev.user_count || 0,
+      channel_id: ev.channel_id,
+      cover: ev.image
+        ? `https://cdn.discordapp.com/guild-events/${ev.id}/${ev.image}.png`
+        : null
+    }));
+
+    res.json({
+      status: 200,
+      timestamp: nowJST(),
+      events: formatted
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      status: 500,
+      error: err.message
+    });
+  }
+});
+
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
