@@ -162,7 +162,7 @@ const nowJST = () =>
 app.get("/api", async (req, res) => {
   try {
     // --- Discord REST (ギルド情報) ---
-    const guildRes = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}`, {
+    const guildRes = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}?with_counts=true`, {
       headers: { Authorization: `Bot ${DISCORD_TOKEN}` }
     });
     if (!guildRes.ok) throw new Error(`Guild fetch failed: ${guildRes.status}`);
