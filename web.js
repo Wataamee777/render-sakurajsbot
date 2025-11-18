@@ -3,7 +3,6 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 dotenv.config();
 import { handleOAuthCallback, client, voiceStates } from './bot.js';
-
 import cors from 'cors';
 
 const app = express();
