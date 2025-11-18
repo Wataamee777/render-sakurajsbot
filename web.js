@@ -4,8 +4,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { handleOAuthCallback, client, voiceStates } from './bot.js';
 
+import cors from 'cors';
 
 const app = express();
+app.use(cors()); // CORS回避
 app.use(bodyParser.json());
 const PORT = process.env.PORT || 3000;
 
