@@ -298,7 +298,7 @@ app.get("/api/invites/:code", async (req, res) => {
       {
         method: "GET",
         headers: {
-          Authorization: `Bot ${process.env.BOT_TOKEN}`,
+          Authorization: `Bot ${process.env.DISCORD_TOKEN}`,
         },
       }
     );
