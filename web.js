@@ -286,4 +286,68 @@ app.get("/version", async (req, res) => {
   }
 });
 
+app.get("/api/invites/:code", async (req, res) => {
+  const inviteCode = req.params.code
+    .replace(".gg", "")
+    .replace("discord.gg/", "")
+    .replace("discord.com/invite/","");
+
+  try {
+    const response = await fetch(
+      `https://discord.com/api/v10/invites/${inviteCode}?with_counts=true`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bot ${process.env.BOT_TOKEN}`,
+        },
+      }
+    );
+
+    if (response.status === 404) {
+      return res.status(404).json({
+        status: 404,
+        message: "Invite not found or expired",
+        match: false,
+      });
+    }
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        status: response.status,
+        message: "Discord API error",
+        match: false,
+      });
+    }
+
+    const data = await response.json();
+
+    // 招待コードのギルドID（存在しない場合もある）
+    const inviteGuildId = data.guild?.id || null;
+
+    // 一致判定
+    const isMatch = inviteGuildId === GUILD_ID;
+
+    return res.json({
+      status: 200,
+      invite: {
+        code: data.code,
+        guild: data.guild
+          ? { id: data.guild.id, name: data.guild.name }
+          : null,
+        channel: data.channel
+          ? { id: data.channel.id, name: data.channel.name }
+          : null,
+      },
+      match: isMatch,
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({
+      status: 500,
+      message: "Internal server error",
+      match: false,
+    });
+  }
+});
+
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
