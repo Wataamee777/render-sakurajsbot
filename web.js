@@ -272,4 +272,18 @@ app.get("/api/events", async (req, res) => {
   }
 });
 
+//API側からバージョンを確認するため
+app.get("/version", async (req, res) => {
+  try{
+    res.json("SakuraBOT Ver x.1");
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      status: 500,
+      error: err.message
+    });
+  }
+});
+
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
