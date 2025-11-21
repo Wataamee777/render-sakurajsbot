@@ -440,7 +440,6 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (commandName === 'gatyareload'){
-    await GatyaLoad();
     const embed = new EmbedBuilder()
         .setTitle("ガチャ設定再読み込み")
         .setColor(0x4dd0e1)
@@ -448,7 +447,9 @@ client.on('interactionCreate', async interaction => {
         .setTimestamp();
 
       await interaction.reply({ embeds: [embed] });
-  }
+
+      await GatyaLoad();
+    }
 
   if (commandName === 'gatyalist') {
     if (forumThreadsData.length === 0) {
