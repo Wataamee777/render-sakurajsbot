@@ -27,7 +27,7 @@
     "ffmpeg-static": "^5.2.0",
     "cors": "^2.8.5",
     "chart.js": "^4.4.1",
-    "chartjs-node-canvas": "^4.1.7",
+    "chartjs-node-canvas": "^5.0.0",
     "pidusage": "^3.0.2"
   },
   "devDependencies": {
