@@ -665,7 +665,6 @@ client.once('ready', async () => {
     activities: [{ name: `Shard ${shardInfo} | Ping: ${ping}ms`, type: 0 }],
     status: 'online'
   });
-  await GatyaLoad();
 
   setInterval(() => {
     const pingNow = Math.round(client.ws.ping);
