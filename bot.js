@@ -243,33 +243,60 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
 
-  try {
-    if(commandName === 'ping'){
-      const uptime = process.uptime();
-      const totalMem = os.totalmem();
-      const freeMem = os.freemem();
-      const usedMem = totalMem - freeMem;
-      const memUsage = (usedMem / totalMem * 100).toFixed(1);
+  if (interaction.commandName === "ping") {
+    await interaction.deferReply();
 
-      const cpus = os.cpus();
-      const avgIdle = cpus.reduce((acc, cpu) => acc + cpu.times.idle, 0) / cpus.length;
-      const avgTotal = cpus.reduce((acc, cpu) =>
-        acc + cpu.times.idle + cpu.times.user + cpu.times.sys + cpu.times.irq + cpu.times.nice, 0
-      ) / cpus.length;
-      const cpuUsage = (100 - (avgIdle / avgTotal * 100)).toFixed(1);
+    // --- リソース取得 ---
+    const stats = await pidusage(process.pid);
+    const cpu = stats.cpu; // %
+    const mem = stats.memory / 1024 / 1024; // MB
+    const uptimeSec = process.uptime() / 60; // 分に変換
 
-      const embed = new EmbedBuilder()
-        .setTitle("Pong")
-        .setColor(0x4dd0e1)
-        .addFields(
-          { name: "Bot Uptime", value: `${(uptime / 60).toFixed(1)} min`, inline: true },
-          { name: "Memory Usage", value: `${memUsage}%`, inline: true },
-          { name: "CPU Usage", value: `${cpuUsage}%`, inline: true }
-        )
-        .setTimestamp();
+    // --- グラフ作成 ---
+    const width = 800;
+    const height = 400;
+    const canvas = new ChartJSNodeCanvas({ width, height });
 
-      await interaction.reply({ embeds: [embed] });
-    }
+    const config = {
+      type: "bar",
+      data: {
+        labels: ["CPU (%)", "Memory (MB)", "Uptime (min)"],
+        datasets: [
+          {
+            label: "Bot Stats",
+            data: [cpu, mem, uptimeSec],
+          }
+        ]
+      },
+      options: {
+        responsive: false,
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: "Discord Bot Status"
+          }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    };
+
+    const imageBuffer = await canvas.renderToBuffer(config);
+
+    // --- 返信 ---
+    await interaction.editReply({
+      content: `📊 **Bot Status**
+CPU: \`${cpu.toFixed(2)}%\`
+Memory: \`${mem.toFixed(2)} MB\`
+Uptime: \`${uptimeSec.toFixed(1)} 分\``,
+      files: [{
+        attachment: imageBuffer,
+        name: "status.png"
+      }]
+    });
+  }
 
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
