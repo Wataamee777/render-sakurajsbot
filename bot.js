@@ -441,6 +441,13 @@ client.on('interactionCreate', async interaction => {
 
   if (commandName === 'gatyareload'){
     await GatyaLoad();
+    const embed = new EmbedBuilder()
+        .setTitle("ガチャ設定再読み込み")
+        .setColor(0x4dd0e1)
+        .setDescription("設定の再読み込み処理を開始しました")
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed] });
   }
 
   if (commandName === 'gatyalist') {
