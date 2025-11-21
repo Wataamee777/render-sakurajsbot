@@ -156,6 +156,11 @@ export async function handleOAuthCallback({ code, ip }) {
 
 // --- commands registration ---
 const commands = [
+  
+  new SlashCommandBuilder()
+    .setName('ping')
+    .setDescription('サーバーへの接続とリソースを表示します。'),
+
   new SlashCommandBuilder()
     .setName('auth')
     .setDescription('認証用リンクを表示します')
@@ -194,7 +199,11 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('playlist')
-    .setDescription('📜 現在の再生キューを表示します')
+    .setDescription('📜 現在の再生キューを表示します'),
+    
+  new SlashCommandBuilder()
+    .setName('gatyareload')
+    .setDescription('ガチャの設定を再読み込みします。')
 
 ].map(c => c.toJSON());
 
@@ -230,6 +239,33 @@ client.on('interactionCreate', async interaction => {
   const { commandName } = interaction;
 
   try {
+    if(commandName === 'ping'){
+      const uptime = process.uptime();
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const usedMem = totalMem - freeMem;
+      const memUsage = (usedMem / totalMem * 100).toFixed(1);
+
+      const cpus = os.cpus();
+      const avgIdle = cpus.reduce((acc, cpu) => acc + cpu.times.idle, 0) / cpus.length;
+      const avgTotal = cpus.reduce((acc, cpu) =>
+        acc + cpu.times.idle + cpu.times.user + cpu.times.sys + cpu.times.irq + cpu.times.nice, 0
+      ) / cpus.length;
+      const cpuUsage = (100 - (avgIdle / avgTotal * 100)).toFixed(1);
+
+      const embed = new EmbedBuilder()
+        .setTitle("Pong")
+        .setColor(0x4dd0e1)
+        .addFields(
+          { name: "Bot Uptime", value: `${(uptime / 60).toFixed(1)} min`, inline: true },
+          { name: "Memory Usage", value: `${memUsage}%`, inline: true },
+          { name: "CPU Usage", value: `${cpuUsage}%`, inline: true }
+        )
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed] });
+    }
+
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
