@@ -681,6 +681,15 @@ client.on('messageCreate', async message => {
   }
 });
 
+client.on('error', (err) => {
+  if (err.code === 10062) {
+    // Unknown interaction は無視
+    console.warn('無視された DiscordAPIError[10062]');
+    return;
+  }
+  console.error('Discord Client Error:', err);
+});
+
 // ready
 client.once('ready', async () => {
   console.log(`Bot logged in as ${client.user.tag}`);
