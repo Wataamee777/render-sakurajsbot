@@ -497,6 +497,10 @@ Uptime: \`${uptimeSec.toFixed(1)} 分\``,
       interaction.reply("エラー:" + e);
     }
   }
+  if (!interaction.replied && !interaction.deferred) {
+  interaction.reply({ content: '❌ エラーが発生しました', flags: 64 })
+    .catch(() => {});
+}
 });
 /* 
   ガチャのデータ読み込み
