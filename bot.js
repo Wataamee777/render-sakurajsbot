@@ -369,13 +369,8 @@ Uptime: \`${uptimeSec.toFixed(1)} 分\``,
 
       return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', flags: 64 });
     }
-  } catch (err) {
-    console.error('interactionCreate error:', err);
-    if (!interaction.replied && !interaction.deferred)
-      interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
-  }
-
-  // --- /play ---
+  
+//-/play ---
   if (commandName === 'play') {
     const url = interaction.options.getString('url');
     const voiceChannel = interaction.member?.voice?.channel;
