@@ -28,7 +28,8 @@
     "cors": "^2.8.5",
     "chart.js": "^4.4.1",
     "chartjs-node-canvas": "^5.0.0",
-    "pidusage": "^3.0.2"
+    "pidusage": "^3.0.2",
+    "systeminformation": "^6.0.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
