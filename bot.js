@@ -204,7 +204,11 @@ const commands = [
     
   new SlashCommandBuilder()
     .setName('gatyareload')
-    .setDescription('ガチャの設定を再読み込みします。')
+    .setDescription('ガチャの設定を再読み込みします。'),
+
+  new SlashCommandBuilder()
+    .setName('gatyashow')
+    .setDescription('ガチャのメモリに保持されている分を表示'),
 
 ].map(c => c.toJSON());
 
@@ -436,13 +440,96 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (commandName === 'gatyareload'){
-    GatyaLoad();
+    await GatyaLoad();
+  }
+
+  if (commandName === 'gatyalist') {
+    if (forumThreadsData.length === 0) {
+      return interaction.reply({ content: '❌ ガチャデータが読み込まれていません', ephemeral: true });
+    }
+
+    const embeds = forumThreadsData.map(thread => {
+      const msgList = thread.messages.map(m => m.probability ? `${m.text} [${m.probability}]` : m.text);
+      return new EmbedBuilder()
+        .setTitle(thread.title)
+        .setDescription(msgList.join('\n') || 'メッセージなし')
+        .setFooter({ text: `Reply Channel: ${thread.replyChannel || '未設定'}` })
+        .setColor(0xFFD700)
+        .setTimestamp();
+    });
+
+    // Embed は 1 回に最大 10 件まで
+    for (let i = 0; i < embeds.length; i += 10) {
+      await interaction.reply({ embeds: embeds.slice(i, i + 10), ephemeral: true });
+    }
   }
 });
 
-//ガチャ関連の読み込み
-function GatyaLoad(){
+/* 
+  ガチャのデータ読み込み
+*/
+export const forumThreadsData = []; // ガチャ一覧をメモリに保持
+const GATYA_CHANNEL_ID = '1441416133302419506';
 
+export async function GatyaLoad() {
+  forumThreadsData.length = 0;
+
+  const channel = await client.channels.fetch(GATYA_CHANNEL_ID);
+  if (!channel || channel.type !== ChannelType.GuildForum) {
+    console.error('指定のチャンネルはフォーラムではありません');
+    return;
+  }
+
+  // アクティブスレッド
+  const activeThreads = await channel.threads.fetchActive();
+  await processThreads(activeThreads.threads);
+
+  // アーカイブ済みスレッド
+  const archivedThreads = await channel.threads.fetchArchived({ type: 'public' });
+  await processThreads(archivedThreads.threads);
+
+  console.log(`GatyaLoad: ${forumThreadsData.length} スレッド読み込み完了`);
+}
+
+function extractProbability(text) {
+  if (typeof text !== 'string') return { probability: "", text: "" };
+  const match = text.match(/\[(\d+)]$/);
+  if (match) {
+    return { probability: match[1], text: text.slice(0, match.index).trim() };
+  }
+  return { probability: "", text };
+}
+
+async function processThreads(threads) {
+  for (const [, thread] of threads) {
+    const threadData = {
+      id: thread.id,
+      title: thread.name,
+      replyChannel: thread.topic?.match(/\d+/)?.[0] ?? null,
+      messages: []
+    };
+
+    let lastId;
+    while (true) {
+      const options = { limit: 100 };
+      if (lastId) options.before = lastId;
+
+      const messages = await thread.messages.fetch(options);
+      if (messages.size === 0) break;
+
+      // 昇順にして安定化（古い順）
+      const sorted = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+      sorted.forEach(msg => {
+        const { probability, text } = extractProbability(msg.content);
+        threadData.messages.push({ probability, text });
+      });
+
+      lastId = messages.last().id;
+    }
+
+    forumThreadsData.push(threadData);
+  }
 }
 
 // playNext
@@ -541,6 +628,7 @@ client.once('ready', async () => {
     activities: [{ name: `Shard ${shardInfo} | Ping: ${ping}ms`, type: 0 }],
     status: 'online'
   });
+  await GatyaLoad();
 
   setInterval(() => {
     const pingNow = Math.round(client.ws.ping);
