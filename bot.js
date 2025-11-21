@@ -22,6 +22,7 @@ import {
   NoSubscriberBehavior
 } from '@discordjs/voice';
 import ytdl from 'ytdl-core';
+import os from 'os';
 import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, insertPinned, updatePinnedMessage, deletePinned } from './db.js';
 
 const {
@@ -344,7 +345,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   // --- /play ---
-  if (interaction.commandName === 'play') {
+  if (commandName === 'play') {
     const url = interaction.options.getString('url');
     const voiceChannel = interaction.member?.voice?.channel;
     if (interaction.replied || interaction.deferred) return;
@@ -403,7 +404,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   // --- /skip ---
-  if (interaction.commandName === 'skip') {
+  if (commandName === 'skip') {
     const guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue || guildQueue.songs.length <= 1)
       return interaction.reply('⚠️ スキップできる曲がないよ！');
@@ -412,7 +413,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   // --- /stop ---
-  if (interaction.commandName === 'stop') {
+  if (commandName === 'stop') {
     const guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue) return interaction.reply('⚠️ 何も再生してないよ！');
     guildQueue.songs = [];
@@ -423,7 +424,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   // --- /playlist ---
-  if (interaction.commandName === 'playlist') {
+  if (commandName === 'playlist') {
     const guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue || guildQueue.songs.length === 0)
       return interaction.reply('📭 再生中のプレイリストは空っぽ！');
@@ -433,7 +434,16 @@ client.on('interactionCreate', async interaction => {
       .join('\n');
     interaction.reply(`🎵 **再生キュー:**\n${list}`);
   }
+
+  if (commandName === 'gatyareload'){
+    GatyaLoad();
+  }
 });
+
+//ガチャ関連の読み込み
+function GatyaLoad(){
+
+}
 
 // playNext
 function playNext(guildId) {
