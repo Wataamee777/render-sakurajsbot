@@ -446,7 +446,7 @@ client.on('interactionCreate', async interaction => {
         .setDescription("設定の再読み込み処理を開始しました")
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed] });
+      interaction.reply({ embeds: [embed] });
 
       await GatyaLoad();
     }
