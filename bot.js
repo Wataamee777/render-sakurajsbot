@@ -476,7 +476,6 @@ client.on('interactionCreate', async interaction => {
     }
   }
 });
-
 /* 
   ガチャのデータ読み込み
 */
@@ -486,19 +485,34 @@ const GATYA_CHANNEL_ID = '1441416133302419506';
 export async function GatyaLoad() {
   forumThreadsData.length = 0;
 
-  const channel = await client.channels.fetch(GATYA_CHANNEL_ID);
+  let channel;
+  try {
+    channel = await client.channels.fetch(GATYA_CHANNEL_ID);
+  } catch (e) {
+    console.error('チャンネル取得に失敗:', e);
+    return;
+  }
+
   if (!channel || channel.type !== ChannelType.GuildForum) {
     console.error('指定のチャンネルはフォーラムではありません');
     return;
   }
 
   // アクティブスレッド
-  const activeThreads = await channel.threads.fetchActive();
-  await processThreads(activeThreads.threads);
+  try {
+    const activeThreads = await channel.threads.fetchActive();
+    await processThreads(activeThreads.threads);
+  } catch (e) {
+    console.error('アクティブスレッドの取得に失敗:', e);
+  }
 
   // アーカイブ済みスレッド
-  const archivedThreads = await channel.threads.fetchArchived({ type: 'public' });
-  await processThreads(archivedThreads.threads);
+  try {
+    const archivedThreads = await channel.threads.fetchArchived({ type: 'public' });
+    await processThreads(archivedThreads.threads);
+  } catch (e) {
+    console.error('アーカイブスレッドの取得に失敗:', e);
+  }
 
   console.log(`GatyaLoad: ${forumThreadsData.length} スレッド読み込み完了`);
 }
@@ -526,15 +540,25 @@ async function processThreads(threads) {
       const options = { limit: 100 };
       if (lastId) options.before = lastId;
 
-      const messages = await thread.messages.fetch(options);
+      let messages;
+      try {
+        messages = await thread.messages.fetch(options);
+      } catch (e) {
+        console.error(`スレッド ${thread.id} のメッセージ取得に失敗:`, e);
+        break; // このスレッドは諦める
+      }
+
       if (messages.size === 0) break;
 
-      // 昇順にして安定化（古い順）
       const sorted = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
       sorted.forEach(msg => {
-        const { probability, text } = extractProbability(msg.content);
-        threadData.messages.push({ probability, text });
+        try {
+          const { probability, text } = extractProbability(msg.content);
+          threadData.messages.push({ probability, text });
+        } catch (e) {
+          console.error(`スレッド ${thread.id} のメッセージ解析に失敗:`, e);
+        }
       });
 
       lastId = messages.last().id;
@@ -543,6 +567,7 @@ async function processThreads(threads) {
     forumThreadsData.push(threadData);
   }
 }
+
 
 // playNext
 function playNext(guildId) {
