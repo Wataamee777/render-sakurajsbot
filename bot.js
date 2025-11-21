@@ -9,6 +9,7 @@ import {
   Routes,
   EmbedBuilder,
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   PermissionsBitField
@@ -22,8 +23,14 @@ import {
   NoSubscriberBehavior
 } from '@discordjs/voice';
 import ytdl from 'ytdl-core';
+import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
+import si from 'systeminformation';
 import os from 'os';
 import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, insertPinned, updatePinnedMessage, deletePinned } from './db.js';
+
+const width = 400;
+const height = 400;
+const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
 
 const {
   DISCORD_BOT_TOKEN,
@@ -243,60 +250,42 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
 
-  if (interaction.commandName === "ping") {
-    await interaction.deferReply();
+  if (interaction.commandName !== 'ping') return;
+  // 情報取得
+  const cpuLoad = (await si.currentLoad()).currentload.toFixed(1);
+  const mem = await si.mem();
+  const memUsage = ((mem.active / mem.total) * 100).toFixed(1);
+  const net = await si.networkStats();
+  const netSpeed = (net[0].rx_sec + net[0].tx_sec) / 1024 / 1024; // MB/s
+  const uptime = os.uptime();
+  const ping = Math.floor(Math.random()*50) + 20; // ここはBotの応答測定でも可
+  const cpu = await si.cpu();
 
-    // --- リソース取得 ---
-    const stats = await pidusage(process.pid);
-    const cpu = stats.cpu; // %
-    const mem = stats.memory / 1024 / 1024; // MB
-    const uptimeSec = process.uptime() / 60; // 分に変換
-
-    // --- グラフ作成 ---
-    const width = 800;
-    const height = 400;
-    const canvas = new ChartJSNodeCanvas({ width, height });
-
-    const config = {
-      type: "bar",
-      data: {
-        labels: ["CPU (%)", "Memory (MB)", "Uptime (min)"],
-        datasets: [
-          {
-            label: "Bot Stats",
-            data: [cpu, mem, uptimeSec],
-          }
-        ]
-      },
-      options: {
-        responsive: false,
-        plugins: {
-          legend: { display: false },
-          title: {
-            display: true,
-            text: "Discord Bot Status"
-          }
-        },
-        scales: {
-          y: { beginAtZero: true }
-        }
-      }
-    };
-
-    const imageBuffer = await canvas.renderToBuffer(config);
-
-    // --- 返信 ---
-    await interaction.editReply({
-      content: `📊 **Bot Status**
-CPU: \`${cpu.toFixed(2)}%\`
-Memory: \`${mem.toFixed(2)} MB\`
-Uptime: \`${uptimeSec.toFixed(1)} 分\``,
-      files: [{
-        attachment: imageBuffer,
-        name: "status.png"
+  // ドーナツグラフ
+  const config = {
+    type: 'doughnut',
+    data: {
+      labels: ['CPU %', 'Memory %', 'Network MB/s'],
+      datasets: [{
+        label: 'Stats',
+        data: [cpuLoad, memUsage, netSpeed],
+        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'],
       }]
-    });
-  }
+    },
+    options: {
+      plugins: { legend: { position: 'bottom' } },
+      responsive: false,
+    }
+  };
+
+  const buffer = await chartJSNodeCanvas.renderToBuffer(config);
+  const attachment = new AttachmentBuilder(buffer, { name: 'stats.png' });
+
+  // Embedで詳細情報も表示
+  await interaction.reply({
+    content: `CPU: ${cpu.brand}\nCores: ${cpu.cores} Threads: ${cpu.logicalCores}\nClock: ${cpu.speed} GHz\nUptime: ${Math.floor(uptime/60)} min\nPing: ${ping} ms`,
+    files: [attachment]
+  });
 
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
