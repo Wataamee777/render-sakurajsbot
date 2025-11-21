@@ -26,6 +26,7 @@ import ytdl from 'ytdl-core';
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import si from 'systeminformation';
 import os from 'os';
+import pidusage from 'pidusage';
 import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, insertPinned, updatePinnedMessage, deletePinned } from './db.js';
 
 const width = 400;
