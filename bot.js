@@ -297,7 +297,7 @@ client.on('interactionCreate', async interaction => {
 
     // Embedで詳細情報も表示
     await interaction.editReply({
-      content: `CPU: ${cpu.brand}\nCores: ${cpu.cores}, Threads: ${cpu.logicalCores}\nClock: ${cpu.speed} GHz\nUptime: ${Math.floor(uptime/60)} min\nPing: ${ping} ms\nメモリ総量: ${memTotal} GB\n空きメモリ: ${memFree} GB`,
+      content: `CPU: ${cpu.brand}\nコア数: ${cpu.cores}, スレッド数: ${cpu.logicalCores}\nクロック: ${cpu.speed} GHz\nCPU使用率: ${cpuLoad} %\n稼働時間: ${Math.floor(uptime/60)} min\nPing: ${ping} ms\nネットワークスピード: ${netSpeed} MB/s\nメモリ総量: ${memTotal} GB\n空きメモリ: ${memFree} GB`,
       files: [attachment]
     });
 
