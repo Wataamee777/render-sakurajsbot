@@ -310,7 +310,8 @@ client.on('interactionCreate', async interaction => {
 
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
+        await interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
+        return;
       }
       const authUrl = `https://bot.sakurahp.f5.si/auth`;
       const embed = new EmbedBuilder()
