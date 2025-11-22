@@ -27,7 +27,7 @@ import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import si from 'systeminformation';
 import os from 'os';
 import pidusage from 'pidusage';
-import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, upsertPinned, updatePinnedMessage, deletePinned } from './db.js';
+import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, upsertPinned, deletePinned } from './db.js';
 
 const width = 400;
 const height = 400;
@@ -683,7 +683,7 @@ client.on('messageCreate', async message => {
       .setTimestamp();
 
     const sent = await message.channel.send({ embeds: [embed] });
-    await updatePinnedMessage(channelId, sent.id);
+    await upsertPinnedMessage(channelId, sent.id);
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
