@@ -396,9 +396,20 @@ client.on('interactionCreate', async interaction => {
   const sent = await interaction.editReply({ embeds: [embed] });
 
   // 絵文字リアクションを順番に付与
-  for (const c of choices) {
-    await sent.react(c.emoji).catch(() => {}); 
+for (const c of choices) {
+  if (!c.emoji) {
+    console.error("Emojiがundefined:", c);
+    continue;
   }
+
+  try {
+    console.log("React:", c.emoji);
+    await sent.react(c.emoji);
+  } catch (err) {
+    console.error("リアクションエラー:", err);
+  }
+}
+
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         await interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
