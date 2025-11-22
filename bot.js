@@ -301,14 +301,17 @@ client.on('interactionCreate', async interaction => {
       files: [attachment]
     });
 
-  } catch (err) {
-    console.error('Error in /ping:', err);
-    if (!interaction.replied && !interaction.deferred) {
-      interaction.editReply({ content: '❌ エラーが発生しました', flags: 64 })
-      .catch(console.error); 
-    }
-  }
+} catch (err) {
+  console.error("Error in /ping:", err);
 
+  if (interaction.deferred && !interaction.replied) {
+    // defer 済み → editReply only
+    await interaction.editReply("❌ エラーが発生しました").catch(console.error);
+  } else if (!interaction.replied) {
+    // defer できてなかった時
+    await interaction.reply("❌ エラーが発生しました").catch(console.error);
+  }
+}
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         await interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
