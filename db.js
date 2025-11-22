@@ -76,11 +76,13 @@ export async function insertPinned(channel_id, message_id, content, author_name)
   if (error) throw error;
 }
 
-export async function updatePinnedMessage(channel_id, message_id) {
+export async function upsertPinned(channel_id, message_id, content, author_name) {
   const { error } = await supabase
     .from('pinned_messages')
-    .update({ message_id, updated_at: new Date().toISOString() })
-    .eq('channel_id', channel_id);
+    .upsert(
+      { channel_id, message_id, content, author_name, updated_at: new Date().toISOString() },
+      { onConflict: 'channel_id' } // channel_id が同じなら更新
+    );
   if (error) throw error;
 }
 
