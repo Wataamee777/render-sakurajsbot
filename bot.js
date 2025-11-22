@@ -380,7 +380,7 @@ client.on('interactionCreate', async interaction => {
     let text = item.split("_'")[1];        // 赤'
     text = text.replace(/'$/, "");         // '削除
 
-    const emoji = pollEmoji[key.toLowerCase()];
+    const emoji = indicator[key.toLowerCase()];
     if (!emoji) continue;
 
     choices.push({ emoji, text });
