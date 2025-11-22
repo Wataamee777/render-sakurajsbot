@@ -305,6 +305,7 @@ client.on('interactionCreate', async interaction => {
     console.error('Error in /ping:', err);
     if (!interaction.replied && !interaction.deferred) {
       interaction.editReply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
+      console.error('Error in /ping:', err);
     }
   }
 
