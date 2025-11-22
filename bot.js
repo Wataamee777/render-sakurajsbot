@@ -349,25 +349,21 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (commandName === 'msgpin') {
-      await interaction.deferReply()
-      const msg = interaction.options.getString('msg');
-      const channelId = interaction.channel.id;
+  await interaction.deferReply();
+  const msg = interaction.options.getString('msg');
+  const channelId = interaction.channel.id;
 
-      const existing = await getPinnedByChannel(channelId);
-      if (existing)
-        return interaction.editReply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
+  const embed = new EmbedBuilder()
+    .setDescription(msg)
+    .setColor(0x00AE86)
+    .setFooter({ text: `📌 投稿者: ${interaction.user.tag}` })
+    .setTimestamp();
 
-      const embed = new EmbedBuilder()
-        .setDescription(msg)
-        .setColor(0x00AE86)
-        .setFooter({ text: `📌 投稿者: ${interaction.user.tag}` })
-        .setTimestamp();
+  const sent = await interaction.channel.send({ embeds: [embed] });
+  await upsertPinned(channelId, sent.id, msg, interaction.user.tag);
 
-      const sent = await interaction.channel.send({ embeds: [embed] });
-      await upsertPinned(channelId, sent.id, msg, interaction.user.tag);
-
-      return interaction.editReply({ content: '📌 メッセージを固定しました！', flags: 64 });
-    }
+  return interaction.editReply({ content: '📌 メッセージを固定しました！', flags: 64 });
+}
 
     if (commandName === 'unpin') {
       const channelId = interaction.channel.id;
