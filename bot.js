@@ -251,7 +251,7 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
 
-  if (interaction.commandName !== 'ping')
+  if (interaction.commandName === 'ping')
 
   try {
     await interaction.deferReply() 
