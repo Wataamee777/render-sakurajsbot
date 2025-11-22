@@ -508,7 +508,7 @@ client.on('interactionCreate', async interaction => {
   }
   if (!interaction.replied && !interaction.deferred) {
   interaction.reply({ content: '❌ エラーが発生しました', flags: 64 })
-    .catch(() => {});
+  .catch(console.error);
 }
 });
 /* 
