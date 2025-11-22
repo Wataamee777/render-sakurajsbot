@@ -251,7 +251,7 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
 
-  if (interaction.commandName !== 'ping') return;
+  if (interaction.commandName !== 'ping')
 
   try {
     // CPU使用率
@@ -306,7 +306,6 @@ client.on('interactionCreate', async interaction => {
       interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
     }
   }
-});
 
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
