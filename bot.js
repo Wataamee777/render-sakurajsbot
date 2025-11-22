@@ -252,41 +252,61 @@ client.on('interactionCreate', async interaction => {
   const { commandName } = interaction;
 
   if (interaction.commandName !== 'ping') return;
-  // 情報取得
-  const cpuLoad = (await si.currentLoad()).currentload.toFixed(1);
-  const mem = await si.mem();
-  const memUsage = ((mem.active / mem.total) * 100).toFixed(1);
-  const net = await si.networkStats();
-  const netSpeed = (net[0].rx_sec + net[0].tx_sec) / 1024 / 1024; // MB/s
-  const uptime = os.uptime();
-  const ping = Math.floor(Math.random()*50) + 20; // ここはBotの応答測定でも可
-  const cpu = await si.cpu();
 
-  // ドーナツグラフ
-  const config = {
-    type: 'doughnut',
-    data: {
-      labels: ['CPU %', 'Memory %', 'Network MB/s'],
-      datasets: [{
-        label: 'Stats',
-        data: [cpuLoad, memUsage, netSpeed],
-        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'],
-      }]
-    },
-    options: {
-      plugins: { legend: { position: 'bottom' } },
-      responsive: false,
+  try {
+    // CPU使用率
+    const loadData = await si.currentLoad().catch(() => ({ currentload: 0 }));
+    const cpuLoad = loadData.currentload ? loadData.currentload.toFixed(1) : '0';
+
+    // メモリ
+    const mem = await si.mem().catch(() => ({ total: 0, available: 0 }));
+    const memUsed = mem.total && mem.available ? ((mem.total - mem.available) / 1024 / 1024 / 1024).toFixed(2) : '0';
+    const memFree = mem.available ? (mem.available / 1024 / 1024 / 1024).toFixed(2) : '0';
+    const memTotal = mem.total ? (mem.total / 1024 / 1024 / 1024).toFixed(2) : '0';
+
+    // ネットワーク
+    const netStats = await si.networkStats().catch(() => [{ rx_sec:0, tx_sec:0 }]);
+    const netSpeed = netStats[0] ? ((netStats[0].rx_sec + netStats[0].tx_sec)/1024/1024).toFixed(2) : '0';
+
+    // CPU詳細
+    const cpu = await si.cpu().catch(() => ({ brand: 'Unknown', cores: 0, logicalCores: 0, speed: 0 }));
+
+    // uptime
+    const uptime = os.uptime();
+    const ping = Math.floor(Math.random() * 50) + 20; // 仮Ping
+
+    // ドーナツグラフ
+    const config = {
+      type: 'doughnut',
+      data: {
+        labels: ['CPU %', 'メモリ使用', 'メモリ空き', 'ネットワーク MB/s'],
+        datasets: [{
+          data: [cpuLoad, memUsed, memFree, netSpeed],
+          backgroundColor: ['#FF6384', '#36A2EB', '#4BC0C0', '#FFCE56'],
+        }]
+      },
+      options: {
+        plugins: { legend: { position: 'bottom' } },
+        responsive: false,
+      }
+    };
+
+    const buffer = await chartJSNodeCanvas.renderToBuffer(config);
+    const attachment = new AttachmentBuilder(buffer, { name: 'stats.png' });
+
+    // Embedで詳細情報も表示
+    await interaction.reply({
+      content: `CPU: ${cpu.brand}\nCores: ${cpu.cores}, Threads: ${cpu.logicalCores}\nClock: ${cpu.speed} GHz\nUptime: ${Math.floor(uptime/60)} min\nPing: ${ping} ms\nメモリ総量: ${memTotal} GB\n空きメモリ: ${memFree} GB`,
+      files: [attachment]
+    });
+
+  } catch (err) {
+    console.error('Error in /ping:', err);
+    if (!interaction.replied && !interaction.deferred) {
+      interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
     }
-  };
-
-  const buffer = await chartJSNodeCanvas.renderToBuffer(config);
-  const attachment = new AttachmentBuilder(buffer, { name: 'stats.png' });
-
-  // Embedで詳細情報も表示
-  await interaction.reply({
-    content: `CPU: ${cpu.brand}\nCores: ${cpu.cores} Threads: ${cpu.logicalCores}\nClock: ${cpu.speed} GHz\nUptime: ${Math.floor(uptime/60)} min\nPing: ${ping} ms`,
-    files: [attachment]
-  });
+  }
+});
 
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
