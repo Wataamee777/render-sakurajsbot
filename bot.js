@@ -66,21 +66,8 @@ export const client = new Client({
   }
 });
 
-const indicatorconst wait = ms => new Promise(res => setTimeout(res, ms));
-
-for (const c of choices) {
-  const key = c.key.toLowerCase();
-    const emoji = indicator[key];
-      if (!emoji) continue;
-      
-        try {
-            await sent.react(emoji);
-                await wait(250); // ← ここが超大事
-                  } catch (err) {
-                      console.error(`リアクション失敗: ${emoji}`, err);
-                        }
-                        }
-                         = {
+// regional indicator emoji map
+const indicator = {
   a: "🇦",
   b: "🇧",
   c: "🇨",
@@ -108,6 +95,9 @@ for (const c of choices) {
   y: "🇾",
   z: "🇿",
 };
+
+// sleep用
+const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // --- IP helpers ---
 export function hashIP(ip) {
@@ -418,8 +408,8 @@ for (const c of choices) {
   if (!emoji) continue;
 
   try {
-    await sent.react(emoji);
-    await wait(250); // ← ここが超大事
+    await sent.react(emoji); // 1つずつ確実にリアクション
+    await wait(250);         // ← これが超重要（Ratelimit回避）
   } catch (err) {
     console.error(`リアクション失敗: ${emoji}`, err);
   }
