@@ -254,6 +254,7 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName !== 'ping')
 
   try {
+    await interaction.deferReply() 
     // CPU使用率
     const loadData = await si.currentLoad().catch(() => ({ currentload: 0 }));
     const cpuLoad = loadData.currentload ? loadData.currentload.toFixed(1) : '0';
@@ -295,7 +296,7 @@ client.on('interactionCreate', async interaction => {
     const attachment = new AttachmentBuilder(buffer, { name: 'stats.png' });
 
     // Embedで詳細情報も表示
-    await interaction.reply({
+    await interaction.editReply({
       content: `CPU: ${cpu.brand}\nCores: ${cpu.cores}, Threads: ${cpu.logicalCores}\nClock: ${cpu.speed} GHz\nUptime: ${Math.floor(uptime/60)} min\nPing: ${ping} ms\nメモリ総量: ${memTotal} GB\n空きメモリ: ${memFree} GB`,
       files: [attachment]
     });
@@ -303,7 +304,7 @@ client.on('interactionCreate', async interaction => {
   } catch (err) {
     console.error('Error in /ping:', err);
     if (!interaction.replied && !interaction.deferred) {
-      interaction.reply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
+      interaction.editReply({ content: '❌ エラーが発生しました', flags: 64 }).catch(() => {});
     }
   }
 
@@ -348,12 +349,13 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (commandName === 'msgpin') {
+      await interaction.deferReply()
       const msg = interaction.options.getString('msg');
       const channelId = interaction.channel.id;
 
       const existing = await getPinnedByChannel(channelId);
       if (existing)
-        return interaction.reply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
+        return interaction.editReply({ content: '⚠️ すでに固定メッセージがあります /unpin で解除してください', flags: 64 });
 
       const embed = new EmbedBuilder()
         .setDescription(msg)
@@ -364,7 +366,7 @@ client.on('interactionCreate', async interaction => {
       const sent = await interaction.channel.send({ embeds: [embed] });
       await insertPinned(channelId, sent.id, msg, interaction.user.tag);
 
-      return interaction.reply({ content: '📌 メッセージを固定しました！', flags: 64 });
+      return interaction.editReply({ content: '📌 メッセージを固定しました！', flags: 64 });
     }
 
     if (commandName === 'unpin') {
