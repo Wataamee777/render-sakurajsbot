@@ -66,6 +66,35 @@ export const client = new Client({
   }
 });
 
+const pollEmoji = {
+  a: "🇦",
+  b: "🇧",
+  c: "🇨",
+  d: "🇩",
+  e: "🇪",
+  f: "🇫",
+  g: "🇬",
+  h: "🇭",
+  i: "🇮",
+  j: "🇯",
+  k: "🇰",
+  l: "🇱",
+  m: "🇲",
+  n: "🇳",
+  o: "🇴",
+  p: "🇵",
+  q: "🇶",
+  r: "🇷",
+  s: "🇸",
+  t: "🇹",
+  u: "🇺",
+  v: "🇻",
+  w: "🇼",
+  x: "🇽",
+  y: "🇾",
+  z: "🇿",
+};
+
 // --- IP helpers ---
 export function hashIP(ip) {
   return crypto.createHash('sha256').update(ip).digest('hex');
@@ -217,7 +246,22 @@ const commands = [
   new SlashCommandBuilder()
     .setName('gatyashow')
     .setDescription('ガチャのメモリに保持されている分を表示'),
-
+    
+  new SlashCommandBuilder()
+    .setName("poll")
+    .setDescription("投票を作成します")
+    .addStringOption(option =>
+      option
+        .setName("title")
+        .setDescription("投票のタイトル")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("data")
+        .setDescription("選択肢（例: a_'赤',b_'青',c_'黄'）")
+        .setRequired(true)
+    )
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
@@ -297,7 +341,7 @@ client.on('interactionCreate', async interaction => {
 
     // Embedで詳細情報も表示
     await interaction.editReply({
-      content: `CPU: ${cpu.brand}\nコア数: ${cpu.cores}, スレッド数: ${cpu.logicalCores}\nクロック: ${cpu.speed} GHz\nCPU使用率: ${cpuLoad} %\n稼働時間: ${Math.floor(uptime/60)} min\nPing: ${ping} ms\nネットワークスピード: ${netSpeed} MB/s\nメモリ総量: ${memTotal} GB\n空きメモリ: ${memFree} GB`,
+      content: `CPU: ${cpu.brand}\nコア数: ${cpu.cores}, スレッド数: ${cpu.logicalCores}\nクロック: ${cpu.speed} GHz\nCPU使用率: ${cpuLoad} %\n稼働時間: ${Math.floor(uptime/60)} min\nPing: ${ping} ms\nネットワークスピード: ${netSpeed} MB/s、\nメモリ総量: ${memTotal} GB\n空きメモリ: ${memFree} GB`,
       files: [attachment]
     });
 
@@ -312,6 +356,49 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply("❌ エラーが発生しました").catch(console.error);
   }
 }
+
+  if (interaction.commandName !== "poll") return;
+
+  const title = interaction.options.getString("title");
+  const rawData = interaction.options.getString("data");
+
+  await interaction.deferReply();
+
+  // "a_'赤',b_'青',c_'黄'" → パース
+  const items = rawData.split(",");
+  const choices = [];
+
+  for (let item of items) {
+    item = item.trim();
+    if (!item.includes("_'")) continue;
+
+    const key = item.split("_'")[0];       // a
+    let text = item.split("_'")[1];        // 赤'
+    text = text.replace(/'$/, "");         // '削除
+
+    const emoji = pollEmoji[key.toLowerCase()];
+    if (!emoji) continue;
+
+    choices.push({ emoji, text });
+  }
+
+  if (choices.length === 0) {
+    return interaction.editReply("❌ 選択肢がないよ…");
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setDescription(
+      choices.map(c => `${c.emoji} ${c.text}`).join("\n")
+    );
+
+  // まず送信
+  const sent = await interaction.editReply({ embeds: [embed] });
+
+  // 絵文字リアクションを順番に付与
+  for (const c of choices) {
+    await sent.react(c.emoji).catch(() => {}); 
+  }
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         await interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
