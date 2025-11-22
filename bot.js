@@ -66,7 +66,21 @@ export const client = new Client({
   }
 });
 
-const pollEmoji = {
+const indicatorconst wait = ms => new Promise(res => setTimeout(res, ms));
+
+for (const c of choices) {
+  const key = c.key.toLowerCase();
+    const emoji = indicator[key];
+      if (!emoji) continue;
+      
+        try {
+            await sent.react(emoji);
+                await wait(250); // ← ここが超大事
+                  } catch (err) {
+                      console.error(`リアクション失敗: ${emoji}`, err);
+                        }
+                        }
+                         = {
   a: "🇦",
   b: "🇧",
   c: "🇨",
@@ -396,17 +410,18 @@ client.on('interactionCreate', async interaction => {
   const sent = await interaction.editReply({ embeds: [embed] });
 
   // 絵文字リアクションを順番に付与
+const wait = ms => new Promise(res => setTimeout(res, ms));
+
 for (const c of choices) {
-  if (!c.emoji) {
-    console.error("Emojiがundefined:", c);
-    continue;
-  }
+  const key = c.key.toLowerCase();
+  const emoji = indicator[key];
+  if (!emoji) continue;
 
   try {
-    console.log("React:", c.emoji);
-    await sent.react(c.emoji);
+    await sent.react(emoji);
+    await wait(250); // ← ここが超大事
   } catch (err) {
-    console.error("リアクションエラー:", err);
+    console.error(`リアクション失敗: ${emoji}`, err);
   }
 }
 
