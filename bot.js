@@ -183,7 +183,7 @@ const commands = [
     .addAttachmentOption(opt => opt.setName('file').setDescription('証拠画像（任意）')),
 
   new SlashCommandBuilder()
-    .setName('pin')
+    .setName('msgpin')
     .setDescription('チャンネルにメッセージを固定します')
     .addStringOption(opt => opt.setName('msg').setDescription('固定する内容').setRequired(true))
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
@@ -347,7 +347,7 @@ client.on('interactionCreate', async interaction => {
       return interaction.editReply('✅ 通報を送信しました！');
     }
 
-    if (commandName === 'pin') {
+    if (commandName === 'msgpin') {
       const msg = interaction.options.getString('msg');
       const channelId = interaction.channel.id;
 
