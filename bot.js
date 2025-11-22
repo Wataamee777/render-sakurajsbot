@@ -364,7 +364,7 @@ client.on('interactionCreate', async interaction => {
         .setTimestamp();
 
       const sent = await interaction.channel.send({ embeds: [embed] });
-      await insertPinned(channelId, sent.id, msg, interaction.user.tag);
+      await upsertPinned(channelId, sent.id, msg, interaction.user.tag);
 
       return interaction.editReply({ content: '📌 メッセージを固定しました！', flags: 64 });
     }
