@@ -66,38 +66,12 @@ export const client = new Client({
   }
 });
 
-// regional indicator emoji map
-const indicator = {
-  a: "🇦",
-  b: "🇧",
-  c: "🇨",
-  d: "🇩",
-  e: "🇪",
-  f: "🇫",
-  g: "🇬",
-  h: "🇭",
-  i: "🇮",
-  j: "🇯",
-  k: "🇰",
-  l: "🇱",
-  m: "🇲",
-  n: "🇳",
-  o: "🇴",
-  p: "🇵",
-  q: "🇶",
-  r: "🇷",
-  s: "🇸",
-  t: "🇹",
-  u: "🇺",
-  v: "🇻",
-  w: "🇼",
-  x: "🇽",
-  y: "🇾",
-  z: "🇿",
-};
+const indicators = "abcdefghijklmnopqrstuvwxyz".split("").map(letter => ({
+  key: letter,
+  emoji: `🇦`.codePointAt(0) + (letter.charCodeAt(0) - 97)
+}));
 
-// sleep用
-const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+const wait = ms => new Promise(res => setTimeout(res, ms));
 
 // --- IP helpers ---
 export function hashIP(ip) {
@@ -366,54 +340,52 @@ client.on('interactionCreate', async interaction => {
   const title = interaction.options.getString("title");
   const rawData = interaction.options.getString("data");
 
-  await interaction.deferReply();
-
-  // "a_'赤',b_'青',c_'黄'" → パース
-  const items = rawData.split(",");
-  const choices = [];
-
-  for (let item of items) {
-    item = item.trim();
-    if (!item.includes("_'")) continue;
-
-    const key = item.split("_'")[0];       // a
-    let text = item.split("_'")[1];        // 赤'
-    text = text.replace(/'$/, "");         // '削除
-
-    const emoji = indicator[key.toLowerCase()];
-    if (!emoji) continue;
-
-    choices.push({ emoji, text });
-  }
-
-  if (choices.length === 0) {
-    return interaction.editReply("❌ 選択肢がないよ…");
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle(title)
-    .setDescription(
-      choices.map(c => `${c.emoji} ${c.text}`).join("\n")
-    );
-
-  // まず送信
-  const sent = await interaction.editReply({ embeds: [embed] });
-
-  // 絵文字リアクションを順番に付与
-const wait = ms => new Promise(res => setTimeout(res, ms));
-
-for (const c of choices) {
-  const key = c.key.toLowerCase();
-  const emoji = indicator[key];
-  if (!emoji) continue;
-
   try {
-    await sent.react(emoji); // 1つずつ確実にリアクション
-    await wait(250);         // ← これが超重要（Ratelimit回避）
+    await interaction.deferReply({ ephemeral: false });
+
+    const pairs = rawData.split(",").map(x => x.trim());
+    const choices = [];
+
+    for (const pair of pairs) {
+      const match = pair.match(/^([a-z])_'(.+)'$/i);
+      if (!match) continue;
+
+      const key = match[1].toLowerCase();
+      const text = match[2];
+
+      choices.push({ key, text });
+    }
+
+    if (choices.length === 0) {
+      return interaction.editReply("❌ データ形式が正しくないよ！");
+    }
+
+    const description = choices
+      .map(c => `:regional_indicator_${c.key}:  ${c.text}`)
+      .join("\n");
+
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setDescription(description)
+      .setColor(0xff77aa);
+
+    const sent = await interaction.editReply({ embeds: [embed] });
+
+    for (const c of choices) {
+      const base = "🇦".codePointAt(0);
+      const offset = c.key.charCodeAt(0) - 97;
+      const emoji = String.fromCodePoint(base + offset);
+
+      await sent.react(emoji).catch(() => {});
+      await wait(450); // 防レート制限
+    }
+
   } catch (err) {
-    console.error(`リアクション失敗: ${emoji}`, err);
+    console.error("Error in /poll:", err);
+    if (!interaction.replied && !interaction.deferred) {
+      interaction.reply({ content: "❌ エラーが発生したよ！", ephemeral: true }).catch(() => {});
+    }
   }
-}
 
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
