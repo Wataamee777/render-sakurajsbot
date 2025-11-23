@@ -2,12 +2,14 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 dotenv.config();
+import { supabase } from "./db.js";
 import { handleOAuthCallback, client, voiceStates } from './bot.js';
 import cors from 'cors';
 
 const app = express();
 app.use(cors()); // CORS回避
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 const PORT = process.env.PORT || 3000;
 
 // 認証ページ
@@ -348,6 +350,79 @@ app.get("/api/invites/:code", async (req, res) => {
       match: false,
     });
   }
+});
+
+// 📌 /odai → HTML直書き + お題追加フォーム
+app.get("/odai", (req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>今日のお題 管理ページ</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    h1 { color: #00bfff; }
+    input, button { font-size: 1em; padding: 5px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <h1>今日のお題 追加ページ</h1>
+
+  <h2>お題追加</h2>
+  <form method="POST" action="/odai/add">
+    <input type="text" name="topic" placeholder="<例: 好きな物は？>" required>
+    <button type="submit">追加</button>
+  </form>
+
+  <h2>現在のお題一覧</h2>
+  <ul id="topic-list"></ul>
+
+  <script>
+    async function fetchTopics() {
+      const res = await fetch("/odai/list");
+      const data = await res.json();
+      const list = document.getElementById("topic-list");
+      list.innerHTML = "";
+      data.forEach(t => {
+        const li = document.createElement("li");
+        li.textContent = t.text + (t.used ? " ✅" : "");
+        list.appendChild(li);
+      });
+    }
+    fetchTopics();
+  </script>
+</body>
+</html>
+  `);
+});
+
+// 📌 お題一覧 API
+app.get("/odai/list", async (req, res) => {
+  const { data, error } = await supabase
+    .from("odai")
+    .select("*")
+    .order("id", { ascending: true });
+  if (error) return res.json([]);
+  res.json(data);
+});
+
+// 📌 お題追加 API（フォーム・JSON両方対応）
+app.post("/odai/add", async (req, res) => {
+  let topic = req.body.topic || (req.body.topic && req.body.topic.trim());
+  if (!topic || topic.trim() === "") {
+    return res.send("空のトピックは追加できません");
+  }
+
+  const { error } = await supabase
+    .from("odai")
+    .insert({ text: topic.trim(), used: false });
+
+  if (error) return res.send("追加に失敗しました");
+
+  // 追加後はページリロード
+  res.redirect("/odai");
 });
 
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));

@@ -27,6 +27,7 @@ import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import si from 'systeminformation';
 import os from 'os';
 import pidusage from 'pidusage';
+import cron from "node-cron";
 import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, upsertPinned, deletePinned } from './db.js';
 
 const width = 400;
@@ -776,6 +777,56 @@ client.on('error', (err) => {
   }
   console.error('Discord Client Error:', err);
 });
+
+// 📌 JST 5:00 の Cron ジョブ（お題送信）
+cron.schedule(
+  "0 5 * * *",
+  async () => {
+    try {
+      console.log("📢 Sending daily odai…");
+
+      let { data: unused } = await supabase
+        .from("odai")
+        .select("*")
+        .eq("used", false);
+
+      if (!unused || unused.length === 0) {
+        console.log("🔄 Resetting all odai to unused…");
+        await supabase.from("odai").update({ used: false });
+        const res2 = await supabase
+          .from("odai")
+          .select("*")
+          .eq("used", false);
+        unused = res2.data;
+      }
+
+      const pick = unused[Math.floor(Math.random() * unused.length)];
+
+      const channel = await client.channels.fetch(1208981611811442699);
+      await channel.send({
+        embeds: [
+          {
+            title: "今日のお題",
+            description: pick.text,
+            color: 0x00bfff,
+            footer: { text: "powered by <@1099098129338466385>" },
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      });
+
+      console.log("✨ Sent:", pick.text);
+
+      await supabase
+        .from("odai")
+        .update({ used: true })
+        .eq("id", pick.id);
+    } catch (err) {
+      console.error("❌ Cron error:", err);
+    }
+  },
+  { timezone: "Asia/Tokyo" }
+);
 
 // ready
 client.once('ready', async () => {
