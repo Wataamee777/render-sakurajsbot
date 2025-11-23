@@ -790,7 +790,7 @@ client.on('messageCreate', async message => {
       .setTimestamp();
 
     const sent = await message.channel.send({ embeds: [embed] });
-    await upsertPinnedMessage(channelId, sent.id);
+    await upsertPinned(channelId, sent.id);
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
