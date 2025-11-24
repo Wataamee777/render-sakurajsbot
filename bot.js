@@ -241,8 +241,134 @@ const commands = [
         .setName("data")
         .setDescription("選択肢（例: a_'赤',b_'青',c_'黄'）")
         .setRequired(true)
+    ),
+  // /account info
+  new SlashCommandBuilder()
+    .setName("account")
+    .setDescription("Account commands")
+    .addSubcommand(sub =>
+      sub
+        .setName("info")
+        .setDescription("アカウント情報を表示")
+        .addUserOption(o =>
+          o.setName("user").setDescription("対象ユーザー")
+        )
     )
-].map(c => c.toJSON());
+
+    .addSubcommand(sub =>
+      sub
+        .setName("settings")
+        .setDescription("設定編集")
+        .addStringOption(o =>
+          o
+            .setName("set")
+            .setDescription("項目")
+            .setRequired(true)
+            .addChoices({ name: "sns", value: "sns" })
+        )
+        .addStringOption(o =>
+          o
+            .setName("type")
+            .setDescription("サービス名")
+            .setRequired(true)
+            .addChoices(
+              { name: "x", value: "x" },
+              { name: "youtube", value: "youtube" },
+              { name: "tiktok", value: "tiktok" },
+              { name: "github", value: "github" }
+            )
+        )
+        .addStringOption(o =>
+          o
+            .setName("value")
+            .setDescription("IDやURL")
+            .setRequired(true)
+        )
+    ),
+
+  // /admin account create/delete/transfer
+  new SlashCommandBuilder()
+    .setName("admin")
+    .setDescription("Admin commands")
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+    
+    .addSubcommand(sub =>
+      sub
+        .setName("account-create")
+        .setDescription("アカウント作成")
+        .addUserOption(o =>
+          o.setName("user").setDescription("対象ユーザー").setRequired(true)
+        )
+    )
+
+    .addSubcommand(sub =>
+      sub
+        .setName("account-delete")
+        .setDescription("アカウント削除")
+        .addUserOption(o =>
+          o.setName("user").setDescription("対象ユーザー").setRequired(true)
+        )
+    )
+
+    .addSubcommand(sub =>
+      sub
+        .setName("account-transfer")
+        .setDescription("アカウント移行")
+        .addUserOption(o =>
+          o.setName("old").setDescription("旧ユーザー").setRequired(true)
+        )
+        .addUserOption(o =>
+          o.setName("new").setDescription("新ユーザー").setRequired(true)
+        )
+    )
+
+    .addSubcommand(sub =>
+      sub
+        .setName("account-xp")
+        .setDescription("XP調整")
+        .addStringOption(o =>
+          o
+            .setName("type")
+            .setDescription("add or delete")
+            .setRequired(true)
+            .addChoices(
+              { name: "add", value: "add" },
+              { name: "delete", value: "delete" }
+            )
+        )
+        .addIntegerOption(o =>
+          o
+            .setName("value")
+            .setDescription("数値")
+            .setRequired(true)
+        )
+        .addUserOption(o =>
+          o.setName("user").setDescription("対象ユーザー").setRequired(true)
+        )
+    )
+
+    .addSubcommand(sub =>
+      sub
+        .setName("account-level")
+        .setDescription("レベル調整")
+        .addStringOption(o =>
+          o
+            .setName("type")
+            .setDescription("add or delete")
+            .setRequired(true)
+            .addChoices(
+              { name: "add", value: "add" },
+              { name: "delete", value: "delete" }
+            )
+        )
+        .addIntegerOption(o =>
+          o.setName("value").setDescription("数値").setRequired(true)
+        )
+        .addUserOption(o =>
+          o.setName("user").setDescription("対象ユーザー").setRequired(true)
+        )
+    )
+    ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
 
@@ -590,63 +716,112 @@ client.on('interactionCreate', async interaction => {
   interaction.reply({ content: '❌ エラーが発生しました', flags: 64 })
   .catch(console.error);
 }
-  // --- アカウント操作 ---
-  if (commandName === 'admin_account_create') {
-    const target = interaction.options.getUser('user');
-    await createAccount(target.id);
-    await interaction.reply(`✅ ${target.username} のアカウント作成完了`);
-  }
+    
+  // -----------------------
+  // /account info
+  // -----------------------
+  if (interaction.commandName === "account" && interaction.options.getSubcommand() === "info") {
+    const target = interaction.options.getUser("user") || interaction.user;
 
-  if (commandName === 'admin_account_delete') {
-    const target = interaction.options.getUser('user');
-    await deleteAccount(target.id);
-    await interaction.reply(`✅ ${target.username} のアカウント削除完了`);
-  }
+    const acc = await getAccount(target.id);
+    if (!acc)
+      return interaction.reply({
+        content: "このユーザーはまだアカウントありません！",
+        ephemeral: true
+      });
 
-  if (commandName === 'admin_account_transfer') {
-    const oldUser = interaction.options.getUser('old');
-    const newUser = interaction.options.getUser('new');
-    await transferAccount(oldUser.id, newUser.id);
-    await interaction.reply(`✅ ${oldUser.username} から ${newUser.username} へアカウント移行完了`);
-  }
-
-  // --- XP/Level操作 ---
-  if (commandName === 'admin_account_xp') {
-    const target = interaction.options.getUser('user');
-    const type = interaction.options.getString('type');
-    const mode = interaction.options.getString('mode'); // add/delete
-    const value = interaction.options.getInteger('value');
-    await modifyXP(target.id, type, value, mode);
-    await interaction.reply(`✅ ${target.username} の ${type}XP を ${mode} ${value} しました`);
-  }
-
-  if (commandName === 'admin_account_level') {
-    const target = interaction.options.getUser('user');
-    const type = interaction.options.getString('type');
-    const mode = interaction.options.getString('mode'); // add/delete
-    const value = interaction.options.getInteger('value');
-    await modifyLevel(target.id, type, value, mode);
-    await interaction.reply(`✅ ${target.username} の ${type}レベルを ${mode} ${value} しました`);
-  }
-
-  // --- SNS操作 ---
-  if (commandName === 'account_set') {
-    const type = interaction.options.getString('type');
-    const value = interaction.options.getString('value');
-    const isPublic = interaction.options.getBoolean('public');
-    await setSNS(interaction.user.id, type, value, isPublic);
-    await interaction.reply('✅ SNS設定更新');
-  }
-
-  if (commandName === 'account_info') {
-    const account = await getAccount(interaction.user.id);
-    await interaction.reply({ content: 
-      `📊 アカウント情報
-TextXP: ${account.textxp} (Lv:${account.textlevel})
-VCXP: ${account.vcxp} (Lv:${account.vclevel})
-Contributor: ${account.contributor}
-Mod: ${account.mod}`
+    return interaction.reply({
+      embeds: [
+        {
+          title: `${target.username} のアカウント情報`,
+          fields: [
+            { name: "XP", value: `${acc.xp}`, inline: true },
+            { name: "VC XP", value: `${acc.vcxp}`, inline: true },
+            { name: "Level", value: `${acc.level}`, inline: true },
+            { name: "VC Level", value: `${acc.vclevel}`, inline: true },
+            {
+              name: "SNS",
+              value: Object.keys(acc.sns || {}).length
+                ? "```\n" + JSON.stringify(acc.sns, null, 2) + "\n```"
+                : "未設定"
+            }
+          ]
+        }
+      ]
     });
+  }
+
+  // -----------------------
+  // /account settings
+  // -----------------------
+  if (interaction.commandName === "account" && interaction.options.getSubcommand() === "settings") {
+    const set = interaction.options.getString("set");
+    const type = interaction.options.getString("type");
+    const value = interaction.options.getString("value");
+
+    const err = await setSNS(interaction.user.id, type, value);
+    if (err.error)
+      return interaction.reply("設定できませんでした…🥲");
+
+    return interaction.reply(`SNS **${type}** を **${value}** に設定したよ！`);
+  }
+
+
+  //==================================================
+  // /admin account 系
+  //==================================================
+  if (interaction.commandName === "admin") {
+
+    // アカウント作成
+    if (interaction.options.getSubcommand() === "account-create") {
+      const user = interaction.options.getUser("user");
+      const res = await createAccount(user.id);
+
+      if (res.error === "AccountAlreadyExists")
+        return interaction.reply("そのユーザーはもう登録済みだよ！");
+
+      return interaction.reply(`アカウント作成完了！`);
+    }
+
+    // アカウント削除
+    if (interaction.options.getSubcommand() === "account-delete") {
+      const user = interaction.options.getUser("user");
+      await deleteAccount(user.id);
+      return interaction.reply("削除完了！");
+    }
+
+    // アカウント移行
+    if (interaction.options.getSubcommand() === "account-transfer") {
+      const oldUser = interaction.options.getUser("old");
+      const newUser = interaction.options.getUser("new");
+
+      const res = await transferAccount(oldUser.id, newUser.id);
+
+      if (res.error)
+        return interaction.reply(`エラー: ${res.error}`);
+
+      return interaction.reply("アカウント移行完了したよ！");
+    }
+
+    // XP操作
+    if (interaction.options.getSubcommand() === "account-xp") {
+      const user = interaction.options.getUser("user");
+      const type = interaction.options.getString("type");
+      const value = interaction.options.getInteger("value");
+
+      await modifyXP(user.id, type, value);
+      return interaction.reply(`XP を ${type} で ${value} 変更したよ！`);
+    }
+
+    // Level操作
+    if (interaction.options.getSubcommand() === "account-level") {
+      const user = interaction.options.getUser("user");
+      const type = interaction.options.getString("type");
+      const value = interaction.options.getInteger("value");
+
+      await modifyLevel(user.id, type, value);
+      return interaction.reply(`Level を ${type} で ${value} 変更したよ！`);
+    }
   }
 });
 /* 
@@ -801,18 +976,13 @@ client.on("voiceStateUpdate", (oldState, newState) => {
   // 入室 or 移動
   guildMap.set(newState.id, newState.channelId);
   
-  const userId = newState.id;
+await addVCXP(userId, xp);
+const newLevel = await checkVCLevel(userId);
 
-  if (!oldState.channelId && newState.channelId) {
-    voiceTimes.set(userId, new Date());
-  }
-
-  if (oldState.channelId && !newState.channelId && voiceTimes.has(userId)) {
-    const joinTime = voiceTimes.get(userId);
-    const minutes = (new Date() - joinTime) / 60000;
-    await addVCXP(userId, minutes);
-    voiceTimes.delete(userId);
-  }
+if (newLevel) {
+  const channel = newState.guild.systemChannel;
+  if (channel) channel.send(`<@${userId}> が **VC Lv.${newLevel}** にアップしたよ！！ 🎉`);
+}
 
 });
 
@@ -843,9 +1013,16 @@ client.on('messageCreate', async message => {
     console.error('固定メッセージ更新エラー:', err);
   }
 
-  if (message.author.bot) return;
-  await addTextXP(message.author.id, 1);
-});
+  if (msg.author.bot) return;
+
+  // 1〜10XP付与
+  const gain = Math.floor(Math.random() * 10) + 1;
+  await modifyXP(msg.author.id, "add", gain);
+
+  const newLvl = await checkTextLevel(msg.author.id);
+  if (newLvl) {
+    msg.channel.send(`🎉 <@${msg.author.id}> が **Lv.${newLvl}** にアップしたよ！！`);
+  }});
 
 client.on('error', (err) => {
   if (err.code === 10062) {

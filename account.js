@@ -1,145 +1,222 @@
-import { supabase } from './db.js';
+// account.js
+import { supabase } from "./db.js";
 
-// --- XP/Level管理 ---
-export async function addXP(userId, type, amount) {
-  const column = type === 'text' ? 'textxp' : 'vcxp';
-  const { data: existing } = await supabase
-    .from('account')
-    .select(column)
-    .eq('userid', userId)
+// ===============================
+// アカウント取得
+// ===============================
+export async function getAccount(userId) {
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("*")
+    .eq("user_id", userId)
     .single();
 
-  if (!existing) return 0;
-
-  const newXP = existing[column] + amount;
-
-  await supabase.from('account')
-    .update({ [column]: newXP })
-    .eq('userid', userId);
-
-  return newXP;
+  if (error) return null;
+  return data;
 }
 
-export async function modifyXP(userId, type, amount, mode) {
-  const delta = mode === 'add' ? amount : -amount;
-  return addXP(userId, type, delta);
-}
 
-export function calculateLevel(xp) {
-  return Math.floor(Math.sqrt(xp / 10));
-}
-
-export async function updateLevel(userId, type) {
-  const columnXP = type === 'text' ? 'textxp' : 'vcxp';
-  const columnLV = type === 'text' ? 'textlevel' : 'vclevel';
-
-  const { data: existing } = await supabase
-    .from('account')
-    .select(columnXP)
-    .eq('userid', userId)
-    .single();
-
-  if (!existing) return 0;
-
-  const newLevel = calculateLevel(existing[columnXP]);
-
-  await supabase.from('account')
-    .update({ [columnLV]: newLevel })
-    .eq('userid', userId);
-
-  return newLevel;
-}
-
-export async function modifyLevel(userId, type, amount, mode) {
-  const { data: existing } = await supabase
-    .from('account')
-    .select(type === 'text' ? 'textlevel' : 'vclevel')
-    .eq('userid', userId)
-    .single();
-
-  if (!existing) return 0;
-
-  const columnLV = type === 'text' ? 'textlevel' : 'vclevel';
-  const newLV = mode === 'add' ? existing[columnLV] + amount : existing[columnLV] - amount;
-
-  await supabase.from('account')
-    .update({ [columnLV]: newLV })
-    .eq('userid', userId);
-
-  return newLV;
-}
-
-// --- XP付与 ---
-export async function addTextXP(userId, amount = 1) {
-  await addXP(userId, 'text', amount);
-  return updateLevel(userId, 'text');
-}
-
-export async function addVCXP(userId, minutes) {
-  const xp = Math.floor(minutes);
-  await addXP(userId, 'vc', xp);
-  return updateLevel(userId, 'vc');
-}
-
-// --- アカウント作成/削除 ---
+// ===============================
+// アカウント作成
+// ===============================
 export async function createAccount(userId) {
-  const { data } = await supabase
-    .from('account')
-    .insert([{
-      userid: userId,
-      textxp: 0,
+  const exists = await getAccount(userId);
+  if (exists) return { error: "AccountAlreadyExists" };
+
+  const { data, error } = await supabase
+    .from("accounts")
+    .insert({
+      user_id: userId,
+      xp: 0,
       vcxp: 0,
-      textlevel: 0,
-      vclevel: 0,
+      level: 1,
+      vclevel: 1,
       contributor: false,
-      mod: false
-    }])
+      mod: false,
+      sns: {}
+    })
     .select()
     .single();
-  return data;
+
+  return { data, error };
 }
 
+
+// ===============================
+// アカウント削除
+// ===============================
 export async function deleteAccount(userId) {
   const { error } = await supabase
-    .from('account')
+    .from("accounts")
     .delete()
-    .eq('userid', userId);
-  return !error;
+    .eq("user_id", userId);
+
+  return { error };
 }
 
-// --- アカウント移行 ---
-export async function transferAccount(oldUserId, newUserId) {
-  const { data } = await supabase
-    .from('account')
-    .select('*')
-    .eq('userid', oldUserId)
-    .single();
 
-  if (!data) throw new Error('旧アカウントが存在しません');
+// ===============================
+// アカウント移行（丸コピー → 旧削除）
+// ===============================
+export async function transferAccount(oldId, newId) {
+  const oldAcc = await getAccount(oldId);
+  if (!oldAcc) return { error: "OldAccountNotFound" };
 
-  await supabase.from('account')
-    .insert([{ ...data, userid: newUserId }]);
+  const existsNew = await getAccount(newId);
+  if (existsNew) return { error: "NewAccountAlreadyExists" };
 
-  await deleteAccount(oldUserId);
-  return true;
+  const { error: insertError } = await supabase
+    .from("accounts")
+    .insert({
+      user_id: newId,
+      xp: oldAcc.xp,
+      vcxp: oldAcc.vcxp,
+      level: oldAcc.level,
+      vclevel: oldAcc.vclevel,
+      contributor: oldAcc.contributor,
+      mod: oldAcc.mod,
+      sns: oldAcc.sns
+    });
+
+  if (insertError) return { error: insertError };
+
+  await deleteAccount(oldId);
+
+  return { success: true };
 }
 
-// --- SNS設定 ---
-export async function setSNS(userId, type, value, isPublic = true) {
-  const column = `sns_${type}`;
-  const publicColumn = `sns_${type}_public`;
 
-  await supabase.from('account')
-    .update({ [column]: value, [publicColumn]: isPublic })
-    .eq('userid', userId);
+// ===============================
+// XP変更（add / delete）
+// ===============================
+export async function modifyXP(userId, type, value) {
+  const account = await getAccount(userId);
+  if (!account) return { error: "NotFound" };
+
+  let newXP = account.xp;
+
+  if (type === "add") newXP += value;
+  else if (type === "delete") newXP -= value;
+
+  if (newXP < 0) newXP = 0;
+
+  const { error } = await supabase
+    .from("accounts")
+    .update({ xp: newXP })
+    .eq("user_id", userId);
+
+  return { error };
 }
 
-// --- 取得 ---
-export async function getAccount(userId) {
-  const { data } = await supabase
-    .from('account')
-    .select('*')
-    .eq('userid', userId)
-    .single();
-  return data;
+
+// ===============================
+// Level変更（add / delete）
+// ===============================
+export async function modifyLevel(userId, type, value) {
+  const account = await getAccount(userId);
+  if (!account) return { error: "NotFound" };
+
+  let newLevel = account.level;
+
+  if (type === "add") newLevel += value;
+  else if (type === "delete") newLevel -= value;
+
+  if (newLevel < 1) newLevel = 1;
+
+  const { error } = await supabase
+    .from("accounts")
+    .update({ level: newLevel })
+    .eq("user_id", userId);
+
+  return { error };
+}
+
+
+// ===============================
+// SNS設定（sns.X = @id）
+// ===============================
+export async function setSNS(userId, type, value) {
+  const account = await getAccount(userId);
+  if (!account) return { error: "NotFound" };
+
+  const sns = account.sns || {};
+  sns[type] = value;
+
+  const { error } = await supabase
+    .from("accounts")
+    .update({ sns })
+    .eq("user_id", userId);
+
+  return { error };
+}
+
+
+// ===============================
+// VC XP追加（VC監視用）
+// ===============================
+export async function addVCXP(userId, amount) {
+  const account = await getAccount(userId);
+  if (!account) return { error: "NotFound" };
+
+  const newXP = account.vcxp + amount;
+  const { error } = await supabase
+    .from("accounts")
+    .update({ vcxp: newXP })
+    .eq("user_id", userId);
+
+  return { error };
+}
+
+export async function checkTextLevel(userId) {
+  const account = await getAccount(userId);
+  if (!account) return;
+
+  let xp = account.xp;
+  let level = account.level;
+
+  let leveledUp = false;
+
+  while (xp >= level * 100) {
+    xp -= level * 100;
+    level++;
+    leveledUp = true;
+  }
+
+  if (leveledUp) {
+    await supabase
+      .from("accounts")
+      .update({ xp, level })
+      .eq("user_id", userId);
+
+    return level;
+  }
+
+  return null;
+}
+
+export async function checkVCLevel(userId) {
+  const account = await getAccount(userId);
+  if (!account) return;
+
+  let xp = account.vcxp;
+  let level = account.vclevel;
+
+  let leveledUp = false;
+
+  while (xp >= level * 100) {
+    xp -= level * 100;
+    level++;
+    leveledUp = true;
+  }
+
+  if (leveledUp) {
+    await supabase
+      .from("accounts")
+      .update({ vcxp: xp, vclevel: level })
+      .eq("user_id", userId);
+
+    return level;
+  }
+
+  return null;
 }
