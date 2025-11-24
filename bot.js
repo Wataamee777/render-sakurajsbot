@@ -28,6 +28,7 @@ import si from 'systeminformation';
 import os from 'os';
 import pidusage from 'pidusage';
 import cron from "node-cron";
+import { addTextXP, addVCXP, createAccount, deleteAccount, transferAccount, setSNS, getAccount, modifyXP, modifyLevel } from './account.js';
 import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, upsertPinned, deletePinned } from './db.js';
 
 const width = 400;
@@ -589,6 +590,64 @@ client.on('interactionCreate', async interaction => {
   interaction.reply({ content: '❌ エラーが発生しました', flags: 64 })
   .catch(console.error);
 }
+  // --- アカウント操作 ---
+  if (commandName === 'admin_account_create') {
+    const target = interaction.options.getUser('user');
+    await createAccount(target.id);
+    await interaction.reply(`✅ ${target.username} のアカウント作成完了`);
+  }
+
+  if (commandName === 'admin_account_delete') {
+    const target = interaction.options.getUser('user');
+    await deleteAccount(target.id);
+    await interaction.reply(`✅ ${target.username} のアカウント削除完了`);
+  }
+
+  if (commandName === 'admin_account_transfer') {
+    const oldUser = interaction.options.getUser('old');
+    const newUser = interaction.options.getUser('new');
+    await transferAccount(oldUser.id, newUser.id);
+    await interaction.reply(`✅ ${oldUser.username} から ${newUser.username} へアカウント移行完了`);
+  }
+
+  // --- XP/Level操作 ---
+  if (commandName === 'admin_account_xp') {
+    const target = interaction.options.getUser('user');
+    const type = interaction.options.getString('type');
+    const mode = interaction.options.getString('mode'); // add/delete
+    const value = interaction.options.getInteger('value');
+    await modifyXP(target.id, type, value, mode);
+    await interaction.reply(`✅ ${target.username} の ${type}XP を ${mode} ${value} しました`);
+  }
+
+  if (commandName === 'admin_account_level') {
+    const target = interaction.options.getUser('user');
+    const type = interaction.options.getString('type');
+    const mode = interaction.options.getString('mode'); // add/delete
+    const value = interaction.options.getInteger('value');
+    await modifyLevel(target.id, type, value, mode);
+    await interaction.reply(`✅ ${target.username} の ${type}レベルを ${mode} ${value} しました`);
+  }
+
+  // --- SNS操作 ---
+  if (commandName === 'account_set') {
+    const type = interaction.options.getString('type');
+    const value = interaction.options.getString('value');
+    const isPublic = interaction.options.getBoolean('public');
+    await setSNS(interaction.user.id, type, value, isPublic);
+    await interaction.reply('✅ SNS設定更新');
+  }
+
+  if (commandName === 'account_info') {
+    const account = await getAccount(interaction.user.id);
+    await interaction.reply({ content: 
+      `📊 アカウント情報
+TextXP: ${account.textxp} (Lv:${account.textlevel})
+VCXP: ${account.vcxp} (Lv:${account.vclevel})
+Contributor: ${account.contributor}
+Mod: ${account.mod}`
+    });
+  }
 });
 /* 
   ガチャのデータ読み込み
@@ -719,6 +778,8 @@ function playNext(guildId) {
   });
 }
 
+const voiceTimes = new Map();
+
 // VC 状態を保持
 export const voiceStates = new Map(); // guildId → Map(userId → channelId)
 
@@ -739,6 +800,20 @@ client.on("voiceStateUpdate", (oldState, newState) => {
 
   // 入室 or 移動
   guildMap.set(newState.id, newState.channelId);
+  
+  const userId = newState.id;
+
+  if (!oldState.channelId && newState.channelId) {
+    voiceTimes.set(userId, new Date());
+  }
+
+  if (oldState.channelId && !newState.channelId && voiceTimes.has(userId)) {
+    const joinTime = voiceTimes.get(userId);
+    const minutes = (new Date() - joinTime) / 60000;
+    await addVCXP(userId, minutes);
+    voiceTimes.delete(userId);
+  }
+
 });
 
 // pinned_messages update on messageCreate
@@ -767,6 +842,9 @@ client.on('messageCreate', async message => {
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
+
+  if (message.author.bot) return;
+  await addTextXP(message.author.id, 1);
 });
 
 client.on('error', (err) => {
