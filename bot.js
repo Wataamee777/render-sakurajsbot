@@ -290,7 +290,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("admin")
     .setDescription("Admin commands")
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
     
     .addSubcommand(sub =>
       sub
