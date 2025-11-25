@@ -150,6 +150,18 @@ export async function setSNS(userId, type, value) {
   return { error };
 }
 
+export async function addTextXP(userId, amount) {
+  const account = await getAccount(userId);
+  if (!account) return { error: "NotFound" };
+
+  const newXP = account.textxp + amount;
+  const { error } = await supabase
+    .from("accounts")
+    .update({ textxp: newXP })
+    .eq("user_id", userId);
+
+  return { error };
+}
 
 // ===============================
 // VC XP追加（VC監視用）
