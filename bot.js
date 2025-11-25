@@ -721,16 +721,18 @@ client.on('interactionCreate', async interaction => {
   // /account info
   // -----------------------
   if (interaction.commandName === "account" && interaction.options.getSubcommand() === "info") {
+    await interaction.deferReply({ ephemeral: true });
+
     const target = interaction.options.getUser("user") || interaction.user;
 
     const acc = await getAccount(target.id);
     if (!acc)
-      return interaction.reply({
+      return interaction.editReply({
         content: "このユーザーはまだアカウントありません！",
         ephemeral: true
       });
 
-    return interaction.reply({
+    return interaction.editReply({
       embeds: [
         {
           title: `${target.username} のアカウント情報`,
@@ -755,15 +757,16 @@ client.on('interactionCreate', async interaction => {
   // /account settings
   // -----------------------
   if (interaction.commandName === "account" && interaction.options.getSubcommand() === "settings") {
+    await interaction.deferReply({ ephemeral: true });
     const set = interaction.options.getString("set");
     const type = interaction.options.getString("type");
     const value = interaction.options.getString("value");
 
     const err = await setSNS(interaction.user.id, type, value);
     if (err.error)
-      return interaction.reply("設定できませんでした…🥲");
+      return interaction.editReply("設定できませんでした…🥲");
 
-    return interaction.reply(`SNS **${type}** を **${value}** に設定したよ！`);
+    return interaction.editReply(`SNS **${type}** を **${value}** に設定したよ！`);
   }
 
 
@@ -774,53 +777,60 @@ client.on('interactionCreate', async interaction => {
 
     // アカウント作成
     if (interaction.options.getSubcommand() === "account-create") {
+      await interaction.deferReply({ ephemeral: false });
+      .catch(console.error);
       const user = interaction.options.getUser("user");
       const res = await createAccount(user.id);
 
       if (res.error === "AccountAlreadyExists")
-        return interaction.reply("そのユーザーはもう登録済みだよ！");
+        return interaction.editReply("そのユーザーはもう登録済みだよ！");
 
-      return interaction.reply(`アカウント作成完了！`);
+      return interaction.editReply(`アカウント作成完了！`);
     }
 
     // アカウント削除
     if (interaction.options.getSubcommand() === "account-delete") {
+      await interaction.deferReply({ ephemeral: false });
       const user = interaction.options.getUser("user");
       await deleteAccount(user.id);
-      return interaction.reply("削除完了！");
+      return interaction.editReply("削除完了！");
     }
 
     // アカウント移行
     if (interaction.options.getSubcommand() === "account-transfer") {
+      await interaction.deferReply({ ephemeral: false });
+
       const oldUser = interaction.options.getUser("old");
       const newUser = interaction.options.getUser("new");
 
       const res = await transferAccount(oldUser.id, newUser.id);
 
       if (res.error)
-        return interaction.reply(`エラー: ${res.error}`);
+        return interaction.editReply(`エラー: ${res.error}`);
 
-      return interaction.reply("アカウント移行完了したよ！");
+      return interaction.editReply("アカウント移行完了したよ！");
     }
 
     // XP操作
     if (interaction.options.getSubcommand() === "account-xp") {
+      await interaction.deferReply({ ephemeral: false });
       const user = interaction.options.getUser("user");
       const type = interaction.options.getString("type");
       const value = interaction.options.getInteger("value");
 
       await modifyXP(user.id, type, value);
-      return interaction.reply(`XP を ${type} で ${value} 変更したよ！`);
+      return interaction.editReply(`XP を ${type} で ${value} 変更したよ！`);
     }
 
     // Level操作
     if (interaction.options.getSubcommand() === "account-level") {
+      await interaction.deferReply({ ephemeral: false });
       const user = interaction.options.getUser("user");
       const type = interaction.options.getString("type");
       const value = interaction.options.getInteger("value");
 
       await modifyLevel(user.id, type, value);
-      return interaction.reply(`Level を ${type} で ${value} 変更したよ！`);
+      return interaction.editReply(`Level を ${type} で ${value} 変更したよ！`);
     }
   }
 });
