@@ -958,7 +958,7 @@ const voiceTimes = new Map();
 // VC 状態を保持
 export const voiceStates = new Map(); // guildId → Map(userId → channelId)
 
-client.on("voiceStateUpdate", (oldState, newState) => {
+client.on("voiceStateUpdate", async (oldState, newState) => {
   const guildId = newState.guild.id;
 
   if (!voiceStates.has(guildId)) {
