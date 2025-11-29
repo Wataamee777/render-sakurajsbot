@@ -778,12 +778,12 @@ client.on('interactionCreate', async interaction => {
   //==================================================
   // /admin account 系
   //==================================================
+ try{
   if (interaction.commandName === "admin") {
 
     // アカウント作成
     if (interaction.options.getSubcommand() === "account-create") {
       await interaction.deferReply({ ephemeral: false });
-      .catch(console.error);
       const user = interaction.options.getUser("user");
       const res = await createAccount(user.id);
 
@@ -837,6 +837,54 @@ client.on('interactionCreate', async interaction => {
       await modifyLevel(user.id, type, value);
       return interaction.editReply(`Level を ${type} で ${value} 変更したよ！`);
     }
+}
+  } catch (err) {
+    console.error("interaction error:", err);
+ }
+}
+          try{
+    // /record 系かチェック
+    if (interaction.commandName === "record") {
+      // ここでサブコマンドを呼ぶのはOK（record はサブコマンド定義済み）
+      const sub = interaction.options.getSubcommand(); // "start" or "stop"
+
+      // すぐに反応を返す必要があるから deferReply
+      await interaction.deferReply({ ephemeral: true });
+
+      if (sub === "start") {
+        // 実処理は record.js に丸投げ
+        const res = await startRecord(interaction); // startRecord は interaction.editReply を内部で呼ぶ設計でもOK
+        // もし startRecord が結果を返すなら editReply で反映
+        if (res && typeof res === "string") {
+          await interaction.editReply(res);
+        } else {
+          await interaction.editReply("録音開始処理を実行したよ。");
+        }
+        return;
+      }
+
+      if (sub === "stop") {
+        const res = await stopRecord(interaction);
+        if (res && typeof res === "string") {
+          await interaction.editReply(res);
+        } else {
+          await interaction.editReply("録音停止したよ。");
+        }
+        return;
+      }
+
+      // 未対応サブコマンド
+      await interaction.editReply("未対応のサブコマンドだよ。");
+    }
+  } catch (err) {
+    console.error("interaction error:", err);
+    // 既に defer してるかどうかで返信方法を切り替える
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply("エラーが発生したよ。管理者に確認してね。");
+    } else {
+      await interaction.reply({ content: "エラーが発生したよ。", ephemeral: true });
+    }
+    // 追加: ここで errorReporter に投げても良い
   }
 });
 /* 
