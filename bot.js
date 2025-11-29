@@ -841,8 +841,7 @@ client.on('interactionCreate', async interaction => {
   } catch (err) {
     console.error("interaction error:", err);
  }
-}
-          try{
+try{
     // /record 系かチェック
     if (interaction.commandName === "record") {
       // ここでサブコマンドを呼ぶのはOK（record はサブコマンド定義済み）
