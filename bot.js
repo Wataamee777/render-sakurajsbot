@@ -367,7 +367,12 @@ const commands = [
         .addUserOption(o =>
           o.setName("user").setDescription("対象ユーザー").setRequired(true)
         )
-    )
+    ),
+    new SlashCommandBuilder()
+      .setName("record")
+      .setDescription("録音コマンド")
+      .addSubcommand(sc => sc.setName("start").setDescription("録音開始"))
+      .addSubcommand(sc => sc.setName("stop").setDescription("録音停止"))
     ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
