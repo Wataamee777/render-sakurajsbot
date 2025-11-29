@@ -1067,7 +1067,7 @@ cron.schedule(
 
       const pick = unused[Math.floor(Math.random() * unused.length)];
 
-      const channel = await client.channels.fetch(1208981611811442699);
+      const channel = await client.channels.fetch(DISCORD_CHAT_CHANNEL_ID);
       await channel.send({
         embeds: [
           {
