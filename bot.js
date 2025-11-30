@@ -413,7 +413,7 @@ client.on('interactionCreate', async interaction => {
   try {
     await interaction.deferReply() 
     // CPU使用率
-    const loadData = await si.currentLoad().catch(() => ({ currentload: 0 }));
+    const loadData = os.cpus;
     const cpuLoad = loadData.currentload ? loadData.currentload.toFixed(1) : '0';
 
     // メモリ
