@@ -11,6 +11,7 @@ const activeRecords = new Map();
 
 export async function startRecord(interaction) {
   await interaction.deferReply({ ephemeral: true });
+  console.log("[DEBUG] deferReply OK");
 
   try {
     const member = interaction.member;
