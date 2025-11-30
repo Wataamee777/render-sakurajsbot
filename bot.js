@@ -849,9 +849,6 @@ try{
       // ここでサブコマンドを呼ぶのはOK（record はサブコマンド定義済み）
       const sub = interaction.options.getSubcommand(); // "start" or "stop"
 
-      // すぐに反応を返す必要があるから deferReply
-      await interaction.deferReply({ ephemeral: true });
-
       if (sub === "start") {
         // 実処理は record.js に丸投げ
         console.log("[DEBUG] sub発火OK");
