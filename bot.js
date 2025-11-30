@@ -1095,7 +1095,7 @@ client.on('error', (err) => {
   }
   console.error('Discord Client Error:', err);
 });
-
+if (process.env.SHARD_ID === "0") {
 // 📌 JST 5:00 の Cron ジョブ（お題送信）
 cron.schedule(
   "0 5 * * *",
@@ -1144,7 +1144,7 @@ cron.schedule(
     }
   },
   { timezone: "Asia/Tokyo" }
-);
+)};
 
 // ready
 client.once('ready', async () => {
