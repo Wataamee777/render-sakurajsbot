@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GET /api/events - さくらbotAPI</title>
+<link rel="stylesheet" href="/site/style.css">
+</head>
+<body>
+<header>
+  <h1>GET /api/events</h1>
+  <a href="/site/index.html">🏠 ホームに戻る</a>
+</header>
+
+<main>
+  <section>
+    <h2>説明</h2>
+    <p>さくら雑談王国のイベント情報を取得</p>
+  </section>
+
+  <section>
+    <h2>URL</h2>
+    <pre><code>https://bot.sakurahp.f5.si/api/events</code></pre>
+  </section>
+
+  <section>
+    <h2>HTTPメソッド</h2>
+    <p>GET</p>
+  </section>
+
+  <section>
+    <h2>パラメータ</h2>
+    <ul>
+      <li>なし</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>例</h2>
+    <pre><code>curl -X GET https://bot.sakurahp.f5.si/api/events</code></pre>
+  </section>
+
+  <section>
+    <h2>レスポンス例</h2>
+    <pre><code>{
+  "status": 200,
+  "timestamp": "2025/11/30 10:49:12",
+  "events": [
+    {
+      "id": "1444505324466864182",
+      "name": "テスト (titel)",
+      "description": "これはテストです (description)",
+      "creator_id": "1099098129338466385",
+      "scheduled_start": "2025-11-30T01:49:00+00:00",
+      "scheduled_end": "2025-11-30T02:15:00+00:00",
+      "status": 2,
+      "entity_type": 3,
+      "user_count": 1,
+      "channel_id": null,
+      "cover": null
+    }
+  ]
+}</code></pre>
+  </section>
+</main>
+
+<script src="/site/script.js"></script>
+</body>
+</html>
