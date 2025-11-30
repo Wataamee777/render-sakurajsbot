@@ -29,6 +29,7 @@ import os from 'os';
 import pidusage from 'pidusage';
 import cron from "node-cron";
 import { addTextXP, addVCXP, createAccount, deleteAccount, transferAccount, setSNS, getAccount, modifyXP, modifyLevel } from './account.js';
+import { startRecord, stopRecord } from "./record.js";
 import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, upsertPinned, deletePinned } from './db.js';
 
 const width = 400;
