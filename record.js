@@ -14,6 +14,8 @@ export const WHITELIST = [
 const activeRecords = new Map();
 
 export async function startRecord(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
   const member = interaction.member;
 
   if (!member.voice.channel)
@@ -77,6 +79,8 @@ export async function startRecord(interaction) {
 }
 
 export async function stopRecord(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
   const member = interaction.member;
   const vc = member.voice.channel;
 
