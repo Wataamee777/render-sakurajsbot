@@ -404,6 +404,7 @@ ensurePinnedTableExists();
 // interaction handler
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
+  console.log("🔥 command:", interaction.commandName, "sub:", interaction.options.getSubcommand(false));
   const { commandName } = interaction;
 
   if (interaction.commandName === 'ping')
