@@ -847,7 +847,7 @@ try{
     // /record 系かチェック
     if (interaction.commandName === "record") {
       // ここでサブコマンドを呼ぶのはOK（record はサブコマンド定義済み）
-      const sub = interaction.options.getSubcommand(); // "start" or "stop"
+      const sub = interaction.options.getSubcommand() // "start" or "stop"
 
       if (sub === "start") {
         // 実処理は record.js に丸投げ
