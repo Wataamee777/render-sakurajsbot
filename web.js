@@ -277,7 +277,10 @@ app.get("/api/events", async (req, res) => {
 //API側からバージョンを確認するため
 app.get("/version", async (req, res) => {
   try{
-    res.json("SakuraBOT Ver x.1");
+    res.json("{
+             status: 200,
+             version: "さくらbot V1"
+      }");
 
   } catch (err) {
     console.error(err);
