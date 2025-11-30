@@ -1041,6 +1041,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   // 入室 or 移動
   guildMap.set(newState.id, newState.channelId);
   
+const userId = newState.id; 
 await addVCXP(userId, xp);
 const newLevel = await checkVCLevel(userId);
 
