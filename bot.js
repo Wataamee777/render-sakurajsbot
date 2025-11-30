@@ -1039,7 +1039,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   guildMap.set(newState.id, newState.channelId);
   
 const userId = newState.id; 
-await addVCXP(userId, xp);
+await addVCXP(userId);
 const newLevel = await checkVCLevel(userId);
 
 if (newLevel) {
