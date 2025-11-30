@@ -1,0 +1,13 @@
+  <!-- OGP -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="🌸 さくらbot APIドキュメント">
+  <meta property="og:description" content="さくらbotのAPIドキュメント">
+  <meta property="og:url" content="https://api.bot.sakurahp.f5.si">
+  <meta property="og:image" content="/site/ogp.png">
+  <meta property="og:site_name" content="さくらbot - APIドキュメント">
+  
+  <!-- Twitterカード -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="🌸 さくらbot - APIドキュメント">
+  <meta name="twitter:description" content="さくらbotのAPIドキュメントサイト">
+  <meta name="twitter:image" content="/site/ogp.png">
