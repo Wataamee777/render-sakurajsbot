@@ -1144,7 +1144,8 @@ cron.schedule(
     }
   },
   { timezone: "Asia/Tokyo" }
-)};
+);
+}
 
 // ready
 client.once('ready', async () => {
