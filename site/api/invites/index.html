@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GET /api/invites/:invitesid - さくらbotAPI</title>
+<link rel="stylesheet" href="/site/style.css">
+</head>
+<body>
+<header>
+  <h1>GET /api</h1>
+  <a href="/site/index.html">🏠 ホームに戻る</a>
+</header>
+
+<main>
+  <section>
+    <h2>説明</h2>
+    <p>招待情報を取得・さくら雑談王国の招待かを判別</p>
+  </section>
+
+  <section>
+    <h2>URL</h2>
+    <pre><code>https://bot.sakurahp.f5.si/api/invites/:invitesid</code></pre>
+  </section>
+
+  <section>
+    <h2>HTTPメソッド</h2>
+    <p>GET</p>
+  </section>
+
+  <section>
+    <h2>パラメータ</h2>
+    <ul>
+      <li><b>invitesid</b> (string) - 招待リンク</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>例</h2>
+    <pre><code>curl -X GET https://bot.sakurahp.f5.si/api/invites/:invitesid</code></pre>
+  </section>
+
+  <section>
+    <h2>レスポンス例</h2>
+    <pre><code>{
+  "status": 200,
+  "invite": {
+    "code": "ZCXmSCA3g8",
+    "guild": {
+      "id": "1208962938388484107",
+      "name": "さくら雑談王国🌸Sakura-talk-kingdom🌸"
+    },
+    "channel": {
+      "id": "1208963222745518080",
+      "name": "┏✋新国民◇new-member"
+    }
+  },
+  "match": true
+}</code></pre>
+  </section>
+</main>
+
+<script src="/site/script.js"></script>
+</body>
+</html>
