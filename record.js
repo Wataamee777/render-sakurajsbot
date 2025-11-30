@@ -8,8 +8,7 @@ import path from "path";
 
 // ← コード側で録音対象を固定
 export const WHITELIST = [
-  "123456789012345678", // A
-  "987654321098765432"  // B
+  "917633605684056085"
 ];
 
 const activeRecords = new Map();
