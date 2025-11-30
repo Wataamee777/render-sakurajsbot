@@ -853,6 +853,7 @@ try{
 
       if (sub === "start") {
         // 実処理は record.js に丸投げ
+        console.log("[DEBUG] sub発火OK");
         const res = await startRecord(interaction); // startRecord は interaction.editReply を内部で呼ぶ設計でもOK
         // もし startRecord が結果を返すなら editReply で反映
         if (res && typeof res === "string") {
