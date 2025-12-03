@@ -1038,12 +1038,12 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   // 入室 or 移動
   guildMap.set(newState.id, newState.channelId);
   
-const userId = newState.id; 
-await addVCXP(userId);
-const newLevel = await checkVCLevel(userId);
-
-if (newLevel) {
-  const channel = newState.guild.systemChannel;
+/* const userId = newState.id; 
+* await addVCXP(userId);
+* const newLevel = await checkVCLevel(userId);
+*
+* if (newLevel) {
+ */ const channel = newState.guild.systemChannel;
   if (channel) channel.send(`<@${userId}> が **VC Lv.${newLevel}** にアップしたよ！！ 🎉`);
 }
 
