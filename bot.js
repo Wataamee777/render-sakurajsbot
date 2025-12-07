@@ -1043,14 +1043,45 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 * const newLevel = await checkVCLevel(userId);
 *
 * if (newLevel) {
- */ const channel = newState.guild.systemChannel;
-  if (channel) channel.send(`<@${userId}> が **VC Lv.${newLevel}** にアップしたよ！！ 🎉`);
-}
-
+* const channel = newState.guild.systemChannel;
+* if (channel) channel.send(`<@${userId}> が **VC Lv.${newLevel}** にアップしたよ！！ 🎉`);
+*/
 });
 
 // pinned_messages update on messageCreate
 client.on('messageCreate', async message => {
+  // 自分のBotの返信だけ避ける
+  if (msg.author.id === client.user.id) return;
+
+  // 他のBot（DISBOARDなど）は通す
+  if (!msg.embeds.length) return; // テキストだけのメッセージは弾く
+
+  const embed = msg.embeds[0];
+  const text = `${embed.title || ""} ${embed.description || ""}`;
+
+  const { data: settings } = await supabase
+    .from("bump_settings")
+    .select("*")
+    .eq("bot_id", msg.author.id);
+
+  if (!settings?.length) return;
+
+  for (const s of settings) {
+    if (text.includes(s.trigger_text)) {
+      // ← 検出OK
+      await supabase.from("bump_logs").insert({
+        bot_id: msg.author.id,
+        detected_at: new Date().toISOString(),
+        channel_id: msg.channel.id,
+        command_id: s.command_id
+      });
+
+      msg.channel.send(
+        `bump検知したよ〜！⏱ 次は **${s.wait_minutes}分後** にリマインドするね！`
+      );
+    }
+  }
+
   if (message.author.bot) return;
   const channelId = message.channel.id;
 
@@ -1095,11 +1126,11 @@ client.on('error', (err) => {
   }
   console.error('Discord Client Error:', err);
 });
-if (process.env.SHARD_ID === "0") {
 // 📌 JST 5:00 の Cron ジョブ（お題送信）
 cron.schedule(
   "0 5 * * *",
   async () => {
+  if (process.env.SHARD_ID === "0") {
     try {
       console.log("📢 Sending daily odai…");
 
@@ -1144,8 +1175,8 @@ cron.schedule(
     }
   },
   { timezone: "Asia/Tokyo" }
-);
-}
+});
+
 
 // ready
 client.once('ready', async () => {
@@ -1157,6 +1188,43 @@ client.once('ready', async () => {
     activities: [{ name: `Shard ${shardInfo} | Ping: ${ping}ms`, type: 0 }],
     status: 'online'
   });
+
+setInterval(async () => {
+  const now = new Date();
+
+  const { data: settings } = await supabase.from("bump_settings").select("*");
+
+  for (const s of settings) {
+    const { data: logs } = await supabase
+      .from("bump_logs")
+      .select("*")
+      .eq("bot_id", s.bot_id);
+
+    for (const log of logs) {
+      const detected = new Date(log.detected_at);
+      const diff = (now - detected) / 1000 / 60; // 分
+
+      if (diff >= s.wait_minutes) {
+        const channel = client.channels.cache.get(log.channel_id);
+        if (channel) {
+          channel.send({
+            content: `<&@1209371709451272215> 時間だよ！⏰  
+</​up:${log.command_id}> を実行してね！`,
+            embeds: [
+              {
+                title: "bump リマインド",
+                description: `検出から${s.wait_minutes}分経過したよ！`,
+                timestamp: new Date().toISOString()
+              }
+            ]
+          });
+        }
+
+        await supabase.from("bump_logs").delete().eq("id", log.id);
+      }
+    }
+  }
+}, 10_000); // 10秒ごとにチェック
 
   setInterval(() => {
     const pingNow = Math.round(client.ws.ping);
