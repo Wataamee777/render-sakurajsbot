@@ -1173,7 +1173,7 @@ cron.schedule(
     } catch (err) {
       console.error("❌ Cron error:", err);
     }
-  },
+  }
   { timezone: "Asia/Tokyo" }
 });
 
