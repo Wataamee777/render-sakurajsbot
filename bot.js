@@ -28,7 +28,7 @@ import si from 'systeminformation';
 import os from 'os';
 import pidusage from 'pidusage';
 import cron from "node-cron";
-import { createUserAccount, deleteUserAccount, transferUserAccount,getUserData, updateUserXp, calculateUserLevel } from "./account.js";
+import { createUserAccount, deleteUserAccount, transferUserAccount,fetchUserAccount, addUserExperience, calculateUserLevel } from "./account.js";
 import { startRecord, stopRecord } from "./record.js";
 import { supabase, upsertUser, insertUserIpIfNotExists, getUserIpOwner, insertAuthLog, getPinnedByChannel, upsertPinned, deletePinned } from './db.js';
 
@@ -1006,11 +1006,31 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   
     const userId = newState.member?.id;
     if (!userId) return;
+    if (newState.member.user.bot) return;
 
-    if (!oldState.channelId && newState.channelId) {
-        const randomXpAmount = Math.floor(Math.random() * 8) + 3; // 3〜10XP
-        await updateUserXp(userId, randomXpAmount);
-    }
+    const userData = await fetchUserAccount(userId);
+    if (!userData) return;
+
+    const now = Date.now();
+    const lastTime = userData.vc_last_xp ? new Date(userData.vc_last_xp).getTime() : 0;
+
+    const cooldown = 10 * 60 * 1000; // 10分
+
+    // VCに入った場合のみ
+    const joinedVoice = !oldState.channelId && newState.channelId;
+    if (!joinedVoice) return;
+
+    // クールタイム中 → XPなし
+    if (now - lastTime < cooldown) return;
+
+    // XP付与
+    await addUserExperience(userId, "voice");
+
+    // 最終XP時間更新
+    await supabase
+        .from("users")
+        .update({ vc_last_xp: new Date().toISOString() })
+        .eq("userid", userId);
   });
 
 // pinned_messages update on messageCreate
