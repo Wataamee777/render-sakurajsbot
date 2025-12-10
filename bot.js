@@ -802,11 +802,11 @@ try{
         if (userPermissionLevel < adminPermissionLevelRequired) {
             return interaction.reply({ content: "🚫 このコマンドは管理者専用だよ〜！", ephemeral: true });
         }
-
+        interaction.deferReply();
         const targetUser = interaction.options.getUser("user");
         await createUserAccount(targetUser.id);
 
-        return interaction.reply(`🎉 **${targetUser.username}** のアカウント作ったよ！`);
+        return interaction.editReply(`🎉 **${targetUser.username}** のアカウント作ったよ！`);
     }
 
     // -----------------------------
@@ -816,11 +816,11 @@ try{
         if (userPermissionLevel < adminPermissionLevelRequired) {
             return interaction.reply({ content: "🚫 管理者じゃないとダメだよ！", ephemeral: true });
         }
-
+        interaction.deferReply();
         const targetUser = interaction.options.getUser("user");
         await deleteUserAccount(targetUser.id);
 
-        return interaction.reply(`🗑️ **${targetUser.username}** のアカウント消したよ`);
+        return interaction.editReply(`🗑️ **${targetUser.username}** のアカウント消したよ`);
     }
 
     // -----------------------------
@@ -830,23 +830,24 @@ try{
         if (userPermissionLevel < adminPermissionLevelRequired) {
             return interaction.reply({ content: "🚫 権限足りないよ！", ephemeral: true });
         }
-
+        interaction.deferReply();
         const fromUser = interaction.options.getUser("from");
         const toUser = interaction.options.getUser("to");
 
         await transferUserAccount(fromUser.id, toUser.id);
 
-        return interaction.reply(`🔁 **${fromUser.username} → ${toUser.username}** にデータ移行したよ！`);
+        return interaction.editReply(`🔁 **${fromUser.username} → ${toUser.username}** にデータ移行したよ！`);
     }
 
     // -----------------------------
     // myxp
     // -----------------------------
     if (interaction.commandName === "myxp") {
+        interaction.deferReply();
         const userData = await getUserData(interaction.user.id);
         const level = calculateUserLevel(userData.xp);
 
-        return interaction.reply(
+        return interaction.editReply(
             `🌱 **${interaction.user.username} のステータス**\n` +
             `XP: **${userData.xp}**\nレベル: **${level}**`
         );
