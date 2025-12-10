@@ -1036,18 +1036,18 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 // pinned_messages update on messageCreate
 client.on('messageCreate', async message => {
   // 自分のBotの返信だけ避ける
-  if (msg.author.id === client.user.id) return;
+  if (messege.author.id === client.user.id) return;
 
   // 他のBot（DISBOARDなど）は通す
-  if (!msg.embeds.length) return; // テキストだけのメッセージは弾く
+  if (!messege.embeds.length) return; // テキストだけのメッセージは弾く
 
-  const embed = msg.embeds[0];
+  const embed = messege.embeds[0];
   const text = `${embed.title || ""} ${embed.description || ""}`;
 
   const { data: settings } = await supabase
     .from("bump_settings")
     .select("*")
-    .eq("bot_id", msg.author.id);
+    .eq("bot_id", messege.author.id);
 
   if (!settings?.length) return;
 
