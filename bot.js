@@ -1036,18 +1036,18 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 // pinned_messages update on messageCreate
 client.on('messageCreate', async message => {
   // 自分のBotの返信だけ避ける
-  if (messege.author.id === client.user.id) return;
+  if (message.author.id === client.user.id) return;
 
   // 他のBot（DISBOARDなど）は通す
-  if (!messege.embeds.length) return; // テキストだけのメッセージは弾く
+  if (!message.embeds.length) return; // テキストだけのメッセージは弾く
 
-  const embed = messege.embeds[0];
+  const embed = message.embeds[0];
   const text = `${embed.title || ""} ${embed.description || ""}`;
 
   const { data: settings } = await supabase
     .from("bump_settings")
     .select("*")
-    .eq("bot_id", messege.author.id);
+    .eq("bot_id", message.author.id);
 
   if (!settings?.length) return;
 
@@ -1061,7 +1061,7 @@ client.on('messageCreate', async message => {
         command_id: s.command_id
       });
 
-      msg.channel.send(
+      message.channel.send(
         `bump検知したよ〜！⏱ 次は **${s.wait_minutes}分後** にリマインドするね！`
       );
     }
