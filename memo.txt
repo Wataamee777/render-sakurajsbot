@@ -1,1 +1,131 @@
-あ
+import { createUserAccount, deleteUserAccount, transferUserAccount,getUserData, updateUserXp, calculateUserLevel } from "./account.js";
+
+    new SlashCommandBuilder()
+        .setName("createaccount")
+        .setDescription("指定ユーザーのアカウントを作成（管理者専用）")
+        .addUserOption(option =>
+            option.setName("user")
+                .setDescription("作成するユーザー")
+                .setRequired(true)
+        ),
+
+    new SlashCommandBuilder()
+        .setName("deleteaccount")
+        .setDescription("指定ユーザーのアカウントを削除（管理者専用）")
+        .addUserOption(option =>
+            option.setName("user")
+                .setDescription("削除するユーザー")
+                .setRequired(true)
+        ),
+
+    new SlashCommandBuilder()
+        .setName("transferaccount")
+        .setDescription("アカウントデータを別ユーザーへ移行（管理者専用）")
+        .addUserOption(option =>
+            option.setName("from")
+                .setDescription("元ユーザー")
+                .setRequired(true)
+        )
+        .addUserOption(option =>
+            option.setName("to")
+                .setDescription("移行先ユーザー")
+                .setRequired(true)
+        ),
+
+    new SlashCommandBuilder()
+        .setName("myxp")
+        .setDescription("自分のXPとレベルを確認する")
+].map(cmd => cmd.toJSON());
+
+// スラッシュコマンド登録
+async function registerSlashCommands() {
+    const restClient = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN);
+
+    await restClient.put(
+        Routes.applicationCommands(process.env.DISCORD_APPLICATION_ID),
+        { body: slashCommands }
+    );
+
+    console.log("Slash commands registered.");
+}
+
+client.once("ready", () => {
+    console.log(`${client.user.tag} が起動したよ〜！`);
+});
+
+// スラッシュコマンド処理
+client.on("interactionCreate", async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+
+    // 管理者レベル（8）チェックを関数なしで直接書く
+    const adminPermissionLevelRequired = 8;
+    const userPermissionLevel = interaction.member?.permissions?.bitfield ?? 0;
+
+    // -----------------------------
+    // createaccount
+    // -----------------------------
+    if (interaction.commandName === "createaccount") {
+        if (userPermissionLevel < adminPermissionLevelRequired) {
+            return interaction.reply({ content: "🚫 このコマンドは管理者専用だよ〜！", ephemeral: true });
+        }
+
+        const targetUser = interaction.options.getUser("user");
+        await createUserAccount(targetUser.id);
+
+        return interaction.reply(`🎉 **${targetUser.username}** のアカウント作ったよ！`);
+    }
+
+    // -----------------------------
+    // deleteaccount
+    // -----------------------------
+    if (interaction.commandName === "deleteaccount") {
+        if (userPermissionLevel < adminPermissionLevelRequired) {
+            return interaction.reply({ content: "🚫 管理者じゃないとダメだよ！", ephemeral: true });
+        }
+
+        const targetUser = interaction.options.getUser("user");
+        await deleteUserAccount(targetUser.id);
+
+        return interaction.reply(`🗑️ **${targetUser.username}** のアカウント消したよ`);
+    }
+
+    // -----------------------------
+    // transferaccount
+    // -----------------------------
+    if (interaction.commandName === "transferaccount") {
+        if (userPermissionLevel < adminPermissionLevelRequired) {
+            return interaction.reply({ content: "🚫 権限足りないよ！", ephemeral: true });
+        }
+
+        const fromUser = interaction.options.getUser("from");
+        const toUser = interaction.options.getUser("to");
+
+        await transferUserAccount(fromUser.id, toUser.id);
+
+        return interaction.reply(`🔁 **${fromUser.username} → ${toUser.username}** にデータ移行したよ！`);
+    }
+
+    // -----------------------------
+    // myxp
+    // -----------------------------
+    if (interaction.commandName === "myxp") {
+        const userData = await getUserData(interaction.user.id);
+        const level = calculateUserLevel(userData.xp);
+
+        return interaction.reply(
+            `🌱 **${interaction.user.username} のステータス**\n` +
+            `XP: **${userData.xp}**\nレベル: **${level}**`
+        );
+    }
+});
+
+// VC 入室でランダムXP付与
+client.on("voiceStateUpdate", async (oldState, newState) => {
+    const userId = newState.member?.id;
+    if (!userId) return;
+
+    if (!oldState.channelId && newState.channelId) {
+        const randomXpAmount = Math.floor(Math.random() * 8) + 3; // 3〜10XP
+        await updateUserXp(userId, randomXpAmount);
+    }
+});

@@ -243,132 +243,43 @@ const commands = [
         .setDescription("選択肢（例: a_'赤',b_'青',c_'黄'）")
         .setRequired(true)
     ),
-  // /account info
-  new SlashCommandBuilder()
-    .setName("account")
-    .setDescription("Account commands")
-    .addSubcommand(sub =>
-      sub
-        .setName("info")
-        .setDescription("アカウント情報を表示")
-        .addUserOption(o =>
-          o.setName("user").setDescription("対象ユーザー")
-        )
-    )
 
-    .addSubcommand(sub =>
-      sub
-        .setName("settings")
-        .setDescription("設定編集")
-        .addStringOption(o =>
-          o
-            .setName("set")
-            .setDescription("項目")
-            .setRequired(true)
-            .addChoices({ name: "sns", value: "sns" })
-        )
-        .addStringOption(o =>
-          o
-            .setName("type")
-            .setDescription("サービス名")
-            .setRequired(true)
-            .addChoices(
-              { name: "x", value: "x" },
-              { name: "youtube", value: "youtube" },
-              { name: "tiktok", value: "tiktok" },
-              { name: "github", value: "github" }
-            )
-        )
-        .addStringOption(o =>
-          o
-            .setName("value")
-            .setDescription("IDやURL")
-            .setRequired(true)
-        )
-    ),
+    new SlashCommandBuilder()
+        .setName("createaccount")
+        .setDescription("指定ユーザーのアカウントを作成（管理者専用）")
+        .addUserOption(option =>
+            option.setName("user")
+                .setDescription("作成するユーザー")
+                .setRequired(true)
+        ),
 
-  // /admin account create/delete/transfer
-  new SlashCommandBuilder()
-    .setName("admin")
-    .setDescription("Admin commands")
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
-    
-    .addSubcommand(sub =>
-      sub
-        .setName("account-create")
-        .setDescription("アカウント作成")
-        .addUserOption(o =>
-          o.setName("user").setDescription("対象ユーザー").setRequired(true)
-        )
-    )
+    new SlashCommandBuilder()
+        .setName("deleteaccount")
+        .setDescription("指定ユーザーのアカウントを削除（管理者専用）")
+        .addUserOption(option =>
+            option.setName("user")
+                .setDescription("削除するユーザー")
+                .setRequired(true)
+        ),
 
-    .addSubcommand(sub =>
-      sub
-        .setName("account-delete")
-        .setDescription("アカウント削除")
-        .addUserOption(o =>
-          o.setName("user").setDescription("対象ユーザー").setRequired(true)
+    new SlashCommandBuilder()
+        .setName("transferaccount")
+        .setDescription("アカウントデータを別ユーザーへ移行（管理者専用）")
+        .addUserOption(option =>
+            option.setName("from")
+                .setDescription("元ユーザー")
+                .setRequired(true)
         )
-    )
+        .addUserOption(option =>
+            option.setName("to")
+                .setDescription("移行先ユーザー")
+                .setRequired(true)
+        ),
 
-    .addSubcommand(sub =>
-      sub
-        .setName("account-transfer")
-        .setDescription("アカウント移行")
-        .addUserOption(o =>
-          o.setName("old").setDescription("旧ユーザー").setRequired(true)
-        )
-        .addUserOption(o =>
-          o.setName("new").setDescription("新ユーザー").setRequired(true)
-        )
-    )
+    new SlashCommandBuilder()
+        .setName("myxp")
+        .setDescription("自分のXPとレベルを確認する"),
 
-    .addSubcommand(sub =>
-      sub
-        .setName("account-xp")
-        .setDescription("XP調整")
-        .addStringOption(o =>
-          o
-            .setName("type")
-            .setDescription("add or delete")
-            .setRequired(true)
-            .addChoices(
-              { name: "add", value: "add" },
-              { name: "delete", value: "delete" }
-            )
-        )
-        .addIntegerOption(o =>
-          o
-            .setName("value")
-            .setDescription("数値")
-            .setRequired(true)
-        )
-        .addUserOption(o =>
-          o.setName("user").setDescription("対象ユーザー").setRequired(true)
-        )
-    )
-
-    .addSubcommand(sub =>
-      sub
-        .setName("account-level")
-        .setDescription("レベル調整")
-        .addStringOption(o =>
-          o
-            .setName("type")
-            .setDescription("add or delete")
-            .setRequired(true)
-            .addChoices(
-              { name: "add", value: "add" },
-              { name: "delete", value: "delete" }
-            )
-        )
-        .addIntegerOption(o =>
-          o.setName("value").setDescription("数値").setRequired(true)
-        )
-        .addUserOption(o =>
-          o.setName("user").setDescription("対象ユーザー").setRequired(true)
-        )
-    ),
     new SlashCommandBuilder()
       .setName("record")
       .setDescription("録音コマンド")
@@ -404,6 +315,8 @@ ensurePinnedTableExists();
 
 // interaction handler
 client.on('interactionCreate', async interaction => {
+    const adminPermissionLevelRequired = 8;
+    const userPermissionLevel = interaction.member?.permissions?.bitfield ?? 0;
   if (!interaction.isChatInputCommand()) return;
   console.log("🔥 command:", interaction.commandName, "sub:", interaction.options.getSubcommand(false));
   const { commandName } = interaction;
@@ -885,6 +798,59 @@ try{
     }
     // 追加: ここで errorReporter に投げても良い
   }
+    if (interaction.commandName === "createaccount") {
+        if (userPermissionLevel < adminPermissionLevelRequired) {
+            return interaction.reply({ content: "🚫 このコマンドは管理者専用だよ〜！", ephemeral: true });
+        }
+
+        const targetUser = interaction.options.getUser("user");
+        await createUserAccount(targetUser.id);
+
+        return interaction.reply(`🎉 **${targetUser.username}** のアカウント作ったよ！`);
+    }
+
+    // -----------------------------
+    // deleteaccount
+    // -----------------------------
+    if (interaction.commandName === "deleteaccount") {
+        if (userPermissionLevel < adminPermissionLevelRequired) {
+            return interaction.reply({ content: "🚫 管理者じゃないとダメだよ！", ephemeral: true });
+        }
+
+        const targetUser = interaction.options.getUser("user");
+        await deleteUserAccount(targetUser.id);
+
+        return interaction.reply(`🗑️ **${targetUser.username}** のアカウント消したよ`);
+    }
+
+    // -----------------------------
+    // transferaccount
+    // -----------------------------
+    if (interaction.commandName === "transferaccount") {
+        if (userPermissionLevel < adminPermissionLevelRequired) {
+            return interaction.reply({ content: "🚫 権限足りないよ！", ephemeral: true });
+        }
+
+        const fromUser = interaction.options.getUser("from");
+        const toUser = interaction.options.getUser("to");
+
+        await transferUserAccount(fromUser.id, toUser.id);
+
+        return interaction.reply(`🔁 **${fromUser.username} → ${toUser.username}** にデータ移行したよ！`);
+    }
+
+    // -----------------------------
+    // myxp
+    // -----------------------------
+    if (interaction.commandName === "myxp") {
+        const userData = await getUserData(interaction.user.id);
+        const level = calculateUserLevel(userData.xp);
+
+        return interaction.reply(
+            `🌱 **${interaction.user.username} のステータス**\n` +
+            `XP: **${userData.xp}**\nレベル: **${level}**`
+        );
+    }
 });
 /* 
   ガチャのデータ読み込み
@@ -1038,15 +1004,14 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   // 入室 or 移動
   guildMap.set(newState.id, newState.channelId);
   
-/* const userId = newState.id; 
-* await addVCXP(userId);
-* const newLevel = await checkVCLevel(userId);
-*
-* if (newLevel) {
-* const channel = newState.guild.systemChannel;
-* if (channel) channel.send(`<@${userId}> が **VC Lv.${newLevel}** にアップしたよ！！ 🎉`);
-*/
-});
+    const userId = newState.member?.id;
+    if (!userId) return;
+
+    if (!oldState.channelId && newState.channelId) {
+        const randomXpAmount = Math.floor(Math.random() * 8) + 3; // 3〜10XP
+        await updateUserXp(userId, randomXpAmount);
+    }
+  });
 
 // pinned_messages update on messageCreate
 client.on('messageCreate', async message => {
@@ -1109,14 +1074,11 @@ client.on('messageCreate', async message => {
 
   if (msg.author.bot) return;
 
-  // 1〜10XP付与
-  const gain = Math.floor(Math.random() * 10) + 1;
-  await modifyXP(msg.author.id, "add", gain);
+    if (message.author.bot) return;
 
-  const newLvl = await checkTextLevel(msg.author.id);
-  if (newLvl) {
-    msg.channel.send(`🎉 <@${msg.author.id}> が **Lv.${newLvl}** にアップしたよ！！`);
-  }});
+    const userId = message.author.id;
+    await addUserExperience(userId, "text");  
+  });
 
 client.on('error', (err) => {
   if (err.code === 10062) {
@@ -1186,7 +1148,7 @@ client.once('ready', async () => {
 
   client.user.setPresence({
     activities: [{ name: `Shard ${shardInfo} | Ping: ${ping}ms`, type: 0 }],
-    status: 'online'
+     status: 'online'
   });
 
 setInterval(async () => {
