@@ -803,11 +803,20 @@ try{
             return interaction.reply({ content: "🚫 このコマンドは管理者専用だよ〜！", ephemeral: true });
         }
         interaction.deferReply();
+        .then(() => {
+        // deferが成功した
         const targetUser = interaction.options.getUser("user");
         await createUserAccount(targetUser.id);
 
         return interaction.editReply(`🎉 **${targetUser.username}** のアカウント作ったよ！`);
-    }
+          })
+        .catch(error => {
+        // deferReply() の実行中に発生したエラーを捕捉する
+        console.error("deferReplyの実行中にエラーが発生しました:", error);
+
+        // 必要に応じて、ユーザーにエラーを通知する代替手段を講じる
+        // （例：フォローアップメッセージを試みるなど）
+   })};
 
     // -----------------------------
     // deleteaccount
@@ -817,6 +826,7 @@ try{
             return interaction.reply({ content: "🚫 管理者じゃないとダメだよ！", ephemeral: true });
         }
         interaction.deferReply();
+        .then(() => {
         const targetUser = interaction.options.getUser("user");
         await deleteUserAccount(targetUser.id);
 
@@ -831,6 +841,7 @@ try{
             return interaction.reply({ content: "🚫 権限足りないよ！", ephemeral: true });
         }
         interaction.deferReply();
+        .then(() => {
         const fromUser = interaction.options.getUser("from");
         const toUser = interaction.options.getUser("to");
 
@@ -838,12 +849,16 @@ try{
 
         return interaction.editReply(`🔁 **${fromUser.username} → ${toUser.username}** にデータ移行したよ！`);
     }
+      .catch(error => {
+      console.error("deferReplyの実行中にエラーが発生しました:", error);
+)}};
 
     // -----------------------------
     // myxp
     // -----------------------------
     if (interaction.commandName === "myxp") {
         interaction.deferReply();
+        .then(() => {
         const userData = await getUserData(interaction.user.id);
         const level = calculateUserLevel(userData.xp);
 
@@ -851,8 +866,12 @@ try{
             `🌱 **${interaction.user.username} のステータス**\n` +
             `XP: **${userData.xp}**\nレベル: **${level}**`
         );
-    }
-});
+          )};
+      .catch(error => {
+      console.error("deferReplyの実行中にエラーが発生しました:", error);
+})
+         )};
+      
 /* 
   ガチャのデータ読み込み
 */
