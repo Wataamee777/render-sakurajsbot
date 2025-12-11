@@ -251,7 +251,8 @@ const commands = [
             option.setName("user")
                 .setDescription("作成するユーザー")
                 .setRequired(true)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);,
 
     new SlashCommandBuilder()
         .setName("deleteaccount")
@@ -260,7 +261,8 @@ const commands = [
             option.setName("user")
                 .setDescription("削除するユーザー")
                 .setRequired(true)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);,
 
     new SlashCommandBuilder()
         .setName("transferaccount")
@@ -274,7 +276,8 @@ const commands = [
             option.setName("to")
                 .setDescription("移行先ユーザー")
                 .setRequired(true)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);,
 
     new SlashCommandBuilder()
         .setName("myxp")
