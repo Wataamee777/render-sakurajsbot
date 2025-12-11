@@ -383,7 +383,7 @@ client.on('interactionCreate', async interaction => {
   }
 }
   }     
-  if (interaction.commandName !== "poll") {
+  if (interaction.commandName === "poll") {
 
   const title = interaction.options.getString("title");
   const rawData = interaction.options.getString("data");
