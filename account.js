@@ -27,7 +27,7 @@ function generateRandomExperience(experienceType) {
 // ===============================
 export async function fetchUserAccount(userId) {
     const { data, error } = await supabase
-        .from("users")
+        .from("accounts")
         .select("*")
         .eq("userid", userId)
         .single();
@@ -49,7 +49,7 @@ export async function createUserAccount(userId, statusType = "bot") {
     };
 
     const { error } = await supabase
-        .from("users")
+        .from("accounts")
         .upsert(newUserData);
 
     return !error;
@@ -60,7 +60,7 @@ export async function createUserAccount(userId, statusType = "bot") {
 // ===============================
 export async function deleteUserAccount(userId) {
     const { error } = await supabase
-        .from("users")
+        .from("accounts")
         .delete()
         .eq("userid", userId);
 
@@ -84,7 +84,7 @@ export async function transferUserAccount(oldUserId, newUserId) {
 
     // 新ID に移す
     const { error: updateError } = await supabase
-        .from("users")
+        .from("accounts")
         .upsert(transferData);
 
     if (updateError) return false;
@@ -113,7 +113,7 @@ export async function addUserExperience(userId, experienceType) {
     const newLevel = calculateUserLevel(newExperience);
 
     const { error } = await supabase
-        .from("users")
+        .from("accounts")
         .update({
             experience: newExperience,
             level: newLevel
