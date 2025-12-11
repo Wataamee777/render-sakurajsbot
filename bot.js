@@ -321,14 +321,14 @@ client.on('interactionCreate', async interaction => {
   console.log("🔥 command:", interaction.commandName, "sub:", interaction.options.getSubcommand(false));
   const { commandName } = interaction;
 
-  if (interaction.commandName === 'ping')
+  if (interaction.commandName === 'ping') {
 
   try {
     await interaction.deferReply() 
     // CPU使用率
     const loadData = os.cpus;
-    const cpuLoad = loadData.currentload ? loadData.currentload.toFixed(1) : '0';
-
+    const cpuLoadInfo = await si.currentLoad();
+    const cpuLoad = cpuLoadInfo.currentload.toFixed
     // メモリ
     const mem = await si.mem().catch(() => ({ total: 0, available: 0 }));
     const memUsed = mem.total && mem.available ? ((mem.total - mem.available) / 1024 / 1024 / 1024).toFixed(2) : '0';
@@ -382,8 +382,8 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply("❌ エラーが発生しました").catch(console.error);
   }
 }
-
-  if (interaction.commandName !== "poll") return;
+  }     
+  if (interaction.commandName !== "poll") {
 
   const title = interaction.options.getString("title");
   const rawData = interaction.options.getString("data");
@@ -420,7 +420,8 @@ client.on('interactionCreate', async interaction => {
     const sent = await interaction.editReply({ embeds: [embed] });
 
     for (const c of choices) {
-      const base = "🇦".codePointAt(0);
+      const base = "🇦".codePointAt(0); // OK
+// だが offset 計算は問題なし。これは許容
       const offset = c.key.charCodeAt(0) - 97;
       const emoji = String.fromCodePoint(base + offset);
 
@@ -434,7 +435,7 @@ client.on('interactionCreate', async interaction => {
       interaction.reply({ content: "❌ エラーが発生したよ！", ephemeral: true }).catch(() => {});
     }
   }
-
+  }
     if (commandName === 'auth') {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         await interaction.reply({ content: '❌ 管理者のみ使用可能です', flags: 64 });
@@ -509,8 +510,9 @@ client.on('interactionCreate', async interaction => {
   if (commandName === 'play') {
     const url = interaction.options.getString('url');
     const voiceChannel = interaction.member?.voice?.channel;
-    if (interaction.replied || interaction.deferred) return;
-    await interaction.deferReply({ ephemeral: false }).catch(console.error);
+if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply();
+}
 
     if (!voiceChannel)
       return interaction.editReply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
@@ -816,7 +818,7 @@ try{
 
         // 必要に応じて、ユーザーにエラーを通知する代替手段を講じる
         // （例：フォローアップメッセージを試みるなど）
-   })};
+   })}
 
     // -----------------------------
     // deleteaccount
@@ -831,7 +833,7 @@ try{
         await deleteUserAccount(targetUser.id);
 
         return interaction.editReply(`🗑️ **${targetUser.username}** のアカウント消したよ`);
-    }
+    })}
 
     // -----------------------------
     // transferaccount
@@ -851,7 +853,7 @@ try{
     }
       .catch(error => {
       console.error("deferReplyの実行中にエラーが発生しました:", error);
-)}};
+))}
 
     // -----------------------------
     // myxp
@@ -870,7 +872,9 @@ try{
       .catch(error => {
       console.error("deferReplyの実行中にエラーが発生しました:", error);
 })
-         )};
+          });
+         
+
       
 /* 
   ガチャのデータ読み込み
