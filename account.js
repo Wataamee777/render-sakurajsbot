@@ -1,10 +1,11 @@
+// accounts.js
 import { supabase } from "./db.js";
 
 // ===============================
 // レベル計算
 // ===============================
-export function calculateUserLevel(totalExperience) {
-    let level = Math.floor(totalExperience / 10);
+export function calculateUserLevel(totalXp) {
+    let level = Math.floor(totalXp / 10);
     if (level > 100) level = 100;
     return level;
 }
@@ -12,13 +13,9 @@ export function calculateUserLevel(totalExperience) {
 // ===============================
 // ランダムXP生成
 // ===============================
-function generateRandomExperience(experienceType) {
-    if (experienceType === "text") {
-        return Math.floor(Math.random() * 5) + 1; // 1〜5
-    }
-    if (experienceType === "voice") {
-        return Math.floor(Math.random() * 8) + 2; // 2〜9
-    }
+function generateRandomExperience(type) {
+    if (type === "text") return Math.floor(Math.random() * 5) + 1;  // 1-5
+    if (type === "voice") return Math.floor(Math.random() * 8) + 2; // 2-9
     return 0;
 }
 
@@ -29,7 +26,7 @@ export async function fetchUserAccount(userId) {
     const { data, error } = await supabase
         .from("accounts")
         .select("*")
-        .eq("userid", userId)
+        .eq("user_id", userId)
         .single();
 
     if (error) return null;
@@ -37,20 +34,21 @@ export async function fetchUserAccount(userId) {
 }
 
 // ===============================
-// アカウント作成（status: manual / bot / transfer）
+// アカウント作成
 // ===============================
-export async function createUserAccount(userId, statusType = "bot") {
-    const newUserData = {
-        userid: userId,
-        experience: 0,
-        level: 0,
-        status: statusType,
-        created_at: new Date().toISOString()
+export async function createUserAccount(userId) {
+    const newUser = {
+        user_id: userId,
+        text_xp: 0,
+        text_level: 0,
+        voice_xp: 0,
+        voice_level: 0,
+        last_voice_xp_at: null
     };
 
     const { error } = await supabase
         .from("accounts")
-        .upsert(newUserData);
+        .insert(newUser);
 
     return !error;
 }
@@ -62,35 +60,36 @@ export async function deleteUserAccount(userId) {
     const { error } = await supabase
         .from("accounts")
         .delete()
-        .eq("userid", userId);
+        .eq("user_id", userId);
 
     return !error;
 }
 
 // ===============================
-// アカウント移行（old → new）
+// データ移行（old → new）
 // ===============================
-export async function transferUserAccount(oldUserId, newUserId) {
-    const oldUserData = await fetchUserAccount(oldUserId);
-    if (!oldUserData) return false;
+export async function transferUserAccount(oldId, newId) {
+    const oldData = await fetchUserAccount(oldId);
+    if (!oldData) return false;
 
-    const transferData = {
-        userid: newUserId,
-        experience: oldUserData.experience,
-        level: oldUserData.level,
-        status: "transfer",
-        created_at: oldUserData.created_at
+    const newData = {
+        user_id: newId,
+        text_xp: oldData.text_xp,
+        text_level: oldData.text_level,
+        voice_xp: oldData.voice_xp,
+        voice_level: oldData.voice_level,
+        last_voice_xp_at: oldData.last_voice_xp_at
     };
 
-    // 新ID に移す
-    const { error: updateError } = await supabase
+    // 新IDに上書き
+    const { error: upErr } = await supabase
         .from("accounts")
-        .upsert(transferData);
+        .upsert(newData);
 
-    if (updateError) return false;
+    if (upErr) return false;
 
-    // 旧データ削除
-    await deleteUserAccount(oldUserId);
+    // 古いID削除
+    await deleteUserAccount(oldId);
 
     return true;
 }
@@ -98,27 +97,35 @@ export async function transferUserAccount(oldUserId, newUserId) {
 // ===============================
 // XP 加算（text / voice）
 // ===============================
-export async function addUserExperience(userId, experienceType) {
-    const randomExperience = generateRandomExperience(experienceType);
+export async function addUserExperience(userId, type) {
+    let user = await fetchUserAccount(userId);
 
-    let userData = await fetchUserAccount(userId);
-
-    // アカウント未作成 → 自動生成
-    if (!userData) {
-        await createUserAccount(userId, "bot");
-        userData = await fetchUserAccount(userId);
+    // データなかったら自動作成
+    if (!user) {
+        await createUserAccount(userId);
+        user = await fetchUserAccount(userId);
     }
 
-    const newExperience = userData.experience + randomExperience;
-    const newLevel = calculateUserLevel(newExperience);
+    const xpField = type === "text" ? "text_xp" : "voice_xp";
+    const levelField = type === "text" ? "text_level" : "voice_level";
+
+    const addXp = generateRandomExperience(type);
+    const newXp = user[xpField] + addXp;
+    const newLevel = calculateUserLevel(newXp);
+
+    const updateData = {
+        [xpField]: newXp,
+        [levelField]: newLevel
+    };
+
+    if (type === "voice") {
+        updateData.last_voice_xp_at = new Date().toISOString();
+    }
 
     const { error } = await supabase
         .from("accounts")
-        .update({
-            experience: newExperience,
-            level: newLevel
-        })
-        .eq("userid", userId);
+        .update(updateData)
+        .eq("user_id", userId);
 
     return !error;
 }
