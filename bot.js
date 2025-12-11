@@ -315,6 +315,7 @@ ensurePinnedTableExists();
 
 // interaction handler
 client.on('interactionCreate', async interaction => {
+  if (client.shard && client.shard.ids[0] !== 0) return;
     const adminPermissionLevelRequired = 8;
     const userPermissionLevel = interaction.member?.permissions?.bitfield ?? 0;
   if (!interaction.isChatInputCommand()) return;
