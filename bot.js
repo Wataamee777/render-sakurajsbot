@@ -831,60 +831,74 @@ if (interaction.commandName === "createaccount") {
     }
 }
 
-    // -----------------------------
+    // -----------------------------------
     // deleteaccount
-    // -----------------------------
+    // -----------------------------------
     if (interaction.commandName === "deleteaccount") {
         if (userPermissionLevel < adminPermissionLevelRequired) {
             return interaction.reply({ content: "🚫 管理者じゃないとダメだよ！", ephemeral: true });
         }
-        interaction.deferReply();
-        .then(() => {
-        const targetUser = interaction.options.getUser("user");
-        await deleteUserAccount(targetUser.id);
 
-        return interaction.editReply(`🗑️ **${targetUser.username}** のアカウント消したよ`);
-    })}
+        try {
+            await interaction.deferReply();
 
-    // -----------------------------
+            const targetUser = interaction.options.getUser("user");
+            await deleteUserAccount(targetUser.id);
+
+            await interaction.editReply(
+                `🗑️ **${targetUser.username}** のアカウント消したよ！`
+            );
+        } catch (err) {
+            console.error(err);
+            await interaction.followUp({ content: "⚠ エラーが起きたよ…", ephemeral: true });
+        }
+    }
+
+    // -----------------------------------
     // transferaccount
-    // -----------------------------
+    // -----------------------------------
     if (interaction.commandName === "transferaccount") {
         if (userPermissionLevel < adminPermissionLevelRequired) {
             return interaction.reply({ content: "🚫 権限足りないよ！", ephemeral: true });
         }
-        interaction.deferReply();
-        .then(() => {
-        const fromUser = interaction.options.getUser("from");
-        const toUser = interaction.options.getUser("to");
 
-        await transferUserAccount(fromUser.id, toUser.id);
+        try {
+            await interaction.deferReply();
 
-        return interaction.editReply(`🔁 **${fromUser.username} → ${toUser.username}** にデータ移行したよ！`);
+            const fromUser = interaction.options.getUser("from");
+            const toUser = interaction.options.getUser("to");
+
+            await transferUserAccount(fromUser.id, toUser.id);
+
+            await interaction.editReply(
+                `🔁 **${fromUser.username} → ${toUser.username}** にデータ移行したよ！`
+            );
+        } catch (err) {
+            console.error(err);
+            await interaction.followUp({ content: "⚠ エラーが起きたよ…", ephemeral: true });
+        }
     }
-      .catch(error => {
-      console.error("deferReplyの実行中にエラーが発生しました:", error);
-))}
 
-    // -----------------------------
+    // -----------------------------------
     // myxp
-    // -----------------------------
+    // -----------------------------------
     if (interaction.commandName === "myxp") {
-        interaction.deferReply();
-        .then(() => {
-        const userData = await getUserData(interaction.user.id);
-        const level = calculateUserLevel(userData.xp);
+        try {
+            await interaction.deferReply();
 
-        return interaction.editReply(
-            `🌱 **${interaction.user.username} のステータス**\n` +
-            `XP: **${userData.xp}**\nレベル: **${level}**`
-        );
-          )};
-      .catch(error => {
-      console.error("deferReplyの実行中にエラーが発生しました:", error);
-})
-          });
-         
+            const userData = await getUserData(interaction.user.id);
+            const level = calculateUserLevel(userData.xp);
+
+            await interaction.editReply(
+                `🌱 **${interaction.user.username} のステータス**\n` +
+                `XP: **${userData.xp}**\nレベル: **${level}**`
+            );
+        } catch (err) {
+            console.error(err);
+            await interaction.followUp({ content: "⚠ エラーが起きたよ…", ephemeral: true });
+        }
+    }
+});         
 
       
 /* 
