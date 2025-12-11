@@ -800,25 +800,36 @@ try{
     }
     // 追加: ここで errorReporter に投げても良い
   }
-    if (interaction.commandName === "createaccount") {
-        if (userPermissionLevel < adminPermissionLevelRequired) {
-            return interaction.reply({ content: "🚫 このコマンドは管理者専用だよ〜！", ephemeral: true });
-        }
-        interaction.deferReply();
-        .then(() => {
-        // deferが成功した
+if (interaction.commandName === "createaccount") {
+    if (userPermissionLevel < adminPermissionLevelRequired) {
+        return interaction.reply({
+            content: "🚫 このコマンドは管理者専用だよ〜！",
+            ephemeral: true
+        });
+    }
+
+    try {
+        await interaction.deferReply();
+
         const targetUser = interaction.options.getUser("user");
         await createUserAccount(targetUser.id);
 
-        return interaction.editReply(`🎉 **${targetUser.username}** のアカウント作ったよ！`);
-          })
-        .catch(error => {
-        // deferReply() の実行中に発生したエラーを捕捉する
-        console.error("deferReplyの実行中にエラーが発生しました:", error);
+        await interaction.editReply(
+            `🎉 **${targetUser.username}** のアカウント作ったよ！`
+        );
 
-        // 必要に応じて、ユーザーにエラーを通知する代替手段を講じる
-        // （例：フォローアップメッセージを試みるなど）
-   })}
+    } catch (error) {
+        console.error("❌ createaccount実行中にエラー:", error);
+
+        // defer が成功してるかどうかは関係なく fallback でOK
+        try {
+            await interaction.followUp({
+                content: "⚠ エラーが起きたかも…！もう一度試してみてね！",
+                ephemeral: true
+            });
+        } catch {}
+    }
+}
 
     // -----------------------------
     // deleteaccount
