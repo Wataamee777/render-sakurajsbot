@@ -883,22 +883,32 @@ if (interaction.commandName === "createaccount") {
     // -----------------------------------
     // myxp
     // -----------------------------------
-    if (interaction.commandName === "myxp") {
-        try {
-            await interaction.deferReply();
+if (interaction.commandName === "myxp") {
+    try {
+        await interaction.deferReply();
 
-            const userData = await getUserData(interaction.user.id);
-            const level = calculateUserLevel(userData.xp);
+        const user = await fetchUserAccount(interaction.user.id);
 
-            await interaction.editReply(
-                `🌱 **${interaction.user.username} のステータス**\n` +
-                `XP: **${userData.xp}**\nレベル: **${level}**`
-            );
-        } catch (err) {
-            console.error(err);
-            await interaction.followUp({ content: "⚠ エラーが起きたよ…", ephemeral: true });
+        if (!user) {
+            await interaction.editReply("まだアカウントがないみたいだよ！ `/createaccount` を使ってね〜！");
+            return;
         }
+
+        // text + voice 合算レベルにしたいならこれ
+        const totalXp = user.text_xp + user.voice_xp;
+        const level = calculateUserLevel(totalXp);
+
+        await interaction.editReply(
+            `🌱 **${interaction.user.username} のステータス**\n` +
+            `📝 Text XP: **${user.text_xp}** (Lv.${user.text_level})\n` +
+            `🎤 Voice XP: **${user.voice_xp}** (Lv.${user.voice_level})\n` +
+            `🌟 合計レベル: **${level}**`
+        );
+    } catch (err) {
+        console.error(err);
+        await interaction.followUp({ content: "⚠ エラーが起きたよ…", ephemeral: true });
     }
+}
 });         
 
       
