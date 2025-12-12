@@ -805,7 +805,7 @@ try{
     // 追加: ここで errorReporter に投げても良い
   }
 if (interaction.commandName === "createaccount") {
-    if (userPermissionLevel < adminPermissionLevelRequired) {
+    if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({
             content: "🚫 このコマンドは管理者専用だよ〜！",
             ephemeral: true
@@ -816,7 +816,7 @@ if (interaction.commandName === "createaccount") {
         await interaction.deferReply();
 
         const targetUser = interaction.options.getUser("user");
-        await createUserAccount(targetUser.id);
+        await createUserAccount(targetUser.id, "admin");
 
         await interaction.editReply(
             `🎉 **${targetUser.username}** のアカウント作ったよ！`
@@ -839,7 +839,7 @@ if (interaction.commandName === "createaccount") {
     // deleteaccount
     // -----------------------------------
     if (interaction.commandName === "deleteaccount") {
-        if (userPermissionLevel < adminPermissionLevelRequired) {
+        if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return interaction.reply({ content: "🚫 管理者じゃないとダメだよ！", ephemeral: true });
         }
 
@@ -862,7 +862,7 @@ if (interaction.commandName === "createaccount") {
     // transferaccount
     // -----------------------------------
     if (interaction.commandName === "transferaccount") {
-        if (userPermissionLevel < adminPermissionLevelRequired) {
+        if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return interaction.reply({ content: "🚫 権限足りないよ！", ephemeral: true });
         }
 
@@ -893,7 +893,7 @@ if (interaction.commandName === "myxp") {
         const user = await fetchUserAccount(interaction.user.id);
 
         if (!user) {
-            await interaction.editReply("まだアカウントがないみたいだよ！ `/createaccount` を使ってね〜！");
+            await interaction.editReply("まだアカウントがないみたいだよ");
             return;
         }
 
