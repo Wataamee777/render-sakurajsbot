@@ -12,7 +12,8 @@ import {
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
-  PermissionsBitField
+  PermissionsBitField,
+  PermissionFlagsBits
 } from 'discord.js';
 import {
   joinVoiceChannel,
