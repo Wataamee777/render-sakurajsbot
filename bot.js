@@ -1099,39 +1099,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 
 // pinned_messages update on messageCreate
 client.on('messageCreate', async message => {
-  // 自分のBotの返信だけ避ける
-  if (message.author.id === client.user.id) return;
-
-  // 他のBot（DISBOARDなど）は通す
-  if (!message.embeds.length) return; // テキストだけのメッセージは弾く
-
-  const embed = message.embeds[0];
-  const text = `${embed.title || ""} ${embed.description || ""}`;
-
-  const { data: settings } = await supabase
-    .from("bump_settings")
-    .select("*")
-    .eq("bot_id", message.author.id);
-
-  if (!settings?.length) return;
-
-  for (const s of settings) {
-    if (text.includes(s.trigger_text)) {
-      // ← 検出OK
-      await supabase.from("bump_logs").insert({
-        bot_id: msg.author.id,
-        detected_at: new Date().toISOString(),
-        channel_id: msg.channel.id,
-        command_id: s.command_id
-      });
-
-      message.channel.send(
-        `bump検知したよ〜！⏱ 次は **${s.wait_minutes}分後** にリマインドするね！`
-      );
-    }
-  }
-
-  if (message.author.bot) return;
+    if (message.author.bot) return;
   const channelId = message.channel.id;
 
   // avoid shards other than 0 updating DB
@@ -1170,6 +1138,39 @@ client.on('error', (err) => {
     console.warn('無視された DiscordAPIError[10062]');
     return;
   }
+
+  // 自分のBotの返信だけ避ける
+  if (message.author.id === client.user.id) return;
+
+  // 他のBot（DISBOARDなど）は通す
+  if (!message.embeds.length) return; // テキストだけのメッセージは弾く
+
+  const embed = message.embeds[0];
+  const text = `${embed.title || ""} ${embed.description || ""}`;
+
+  const { data: settings } = await supabase
+    .from("bump_settings")
+    .select("*")
+    .eq("bot_id", message.author.id);
+
+  if (!settings?.length) return;
+
+  for (const s of settings) {
+    if (text.includes(s.trigger_text)) {
+      // ← 検出OK
+      await supabase.from("bump_logs").insert({
+        bot_id: msg.author.id,
+        detected_at: new Date().toISOString(),
+        channel_id: msg.channel.id,
+        command_id: s.command_id
+      });
+
+      message.channel.send(
+        `bump検知したよ〜！⏱ 次は **${s.wait_minutes}分後** にリマインドするね！`
+      );
+    }
+  }
+
   console.error('Discord Client Error:', err);
 });
 // 📌 JST 5:00 の Cron ジョブ（お題送信）
