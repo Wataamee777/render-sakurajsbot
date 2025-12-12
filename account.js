@@ -46,13 +46,27 @@ export async function createUserAccount(userId) {
         last_voice_xp_at: null
     };
 
-    const { error } = await supabase
-        .from("accounts")
-        .insert(newUser);
+    try {
+        const { error } = await supabase
+            .from("accounts")
+            .insert(newUser)
+            .select(); // 挿入されたレコードを返す場合は.select()を追加
 
-    return !error;
+        if (error) {
+            // 💡 データベースレベルのエラーをコンソールに出力
+            console.error("Supabase insert error:", error);
+            // データベースへの挿入が失敗した場合
+            return false;
+        }
+
+        return true; // 成功
+    } catch (e) {
+        // 💡 実行時エラーやネットワークエラーをコンソールに出力
+        console.error("Execution error creating user account:", e);
+        // 予期せぬエラーが発生した場合
+        return false;
+    }
 }
-
 // ===============================
 // アカウント削除
 // ===============================
