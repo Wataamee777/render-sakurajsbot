@@ -252,7 +252,7 @@ new SlashCommandBuilder()
             .setDescription("作成するユーザー")
             .setRequired(true)
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDefaultMemberPermissions(PermissionsBitField.Administrator),
 
 new SlashCommandBuilder()
     .setName("deleteaccount")
@@ -262,7 +262,7 @@ new SlashCommandBuilder()
             .setDescription("削除するユーザー")
             .setRequired(true)
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDefaultMemberPermissions(PermissionsBitField.Administrator),
 
 new SlashCommandBuilder()
     .setName("transferaccount")
@@ -277,7 +277,7 @@ new SlashCommandBuilder()
             .setDescription("移行先ユーザー")
             .setRequired(true)
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDefaultMemberPermissions(PermissionsBitField.Administrator),
 
     new SlashCommandBuilder()
         .setName("myxp")
