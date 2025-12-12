@@ -244,40 +244,40 @@ const commands = [
         .setRequired(true)
     ),
 
-    new SlashCommandBuilder()
-        .setName("createaccount")
-        .setDescription("指定ユーザーのアカウントを作成（管理者専用）")
-        .addUserOption(option =>
-            option.setName("user")
-                .setDescription("作成するユーザー")
-                .setRequired(true)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);,
+new SlashCommandBuilder()
+    .setName("createaccount")
+    .setDescription("指定ユーザーのアカウントを作成（管理者専用）")
+    .addUserOption(option =>
+        option.setName("user")
+            .setDescription("作成するユーザー")
+            .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
-    new SlashCommandBuilder()
-        .setName("deleteaccount")
-        .setDescription("指定ユーザーのアカウントを削除（管理者専用）")
-        .addUserOption(option =>
-            option.setName("user")
-                .setDescription("削除するユーザー")
-                .setRequired(true)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);,
+new SlashCommandBuilder()
+    .setName("deleteaccount")
+    .setDescription("指定ユーザーのアカウントを削除（管理者専用）")
+    .addUserOption(option =>
+        option.setName("user")
+            .setDescription("削除するユーザー")
+            .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
-    new SlashCommandBuilder()
-        .setName("transferaccount")
-        .setDescription("アカウントデータを別ユーザーへ移行（管理者専用）")
-        .addUserOption(option =>
-            option.setName("from")
-                .setDescription("元ユーザー")
-                .setRequired(true)
-        )
-        .addUserOption(option =>
-            option.setName("to")
-                .setDescription("移行先ユーザー")
-                .setRequired(true)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);,
+new SlashCommandBuilder()
+    .setName("transferaccount")
+    .setDescription("アカウントデータを別ユーザーへ移行（管理者専用）")
+    .addUserOption(option =>
+        option.setName("from")
+            .setDescription("元ユーザー")
+            .setRequired(true)
+    )
+    .addUserOption(option =>
+        option.setName("to")
+            .setDescription("移行先ユーザー")
+            .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     new SlashCommandBuilder()
         .setName("myxp")
