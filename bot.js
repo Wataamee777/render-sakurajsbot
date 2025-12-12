@@ -816,7 +816,7 @@ if (interaction.commandName === "createaccount") {
         await interaction.deferReply();
 
         const targetUser = interaction.options.getUser("user");
-        await createUserAccount(targetUser.id, "admin");
+        await createUserAccount(targetUser.id);
 
         await interaction.editReply(
             `🎉 **${targetUser.username}** のアカウント作ったよ！`
