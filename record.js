@@ -10,7 +10,7 @@ export const WHITELIST = ["917633605684056085"];
 const activeRecords = new Map();
 
 export async function startRecord(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   console.log("[DEBUG] deferReply OK");
 
   try {
@@ -93,13 +93,13 @@ export async function startRecord(interaction) {
 
     return interaction.reply({
       content: "録音開始中にエラーが発生したよ…",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
 
 export async function stopRecord(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const member = interaction.member;
@@ -138,7 +138,7 @@ export async function stopRecord(interaction) {
 
     return interaction.reply({
       content: "録音停止中にエラーが発生したよ…",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }

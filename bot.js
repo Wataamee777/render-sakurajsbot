@@ -438,7 +438,7 @@ client.on('interactionCreate', async interaction => {
   } catch (err) {
     console.error("Error in /poll:", err);
     if (!interaction.replied && !interaction.deferred) {
-      interaction.reply({ content: "❌ エラーが発生したよ！", ephemeral: true }).catch(() => {});
+      interaction.reply({ content: "❌ エラーが発生したよ！", flags: MessageFlags.Ephemeral }).catch(() => {});
     }
   }
   }
@@ -458,7 +458,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (commandName === 'report') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const userid = interaction.options.getString('userid');
       const reason = interaction.options.getString('reason');
       const file = interaction.options.getAttachment('file');
@@ -496,20 +496,20 @@ client.on('interactionCreate', async interaction => {
   const sent = await interaction.channel.send({ embeds: [embed] });
   await upsertPinned(channelId, sent.id, msg, interaction.user.tag);
 
-  return interaction.editReply({ content: '📌 メッセージを固定しました！', ephemeral: true});
+  return interaction.editReply({ content: '📌 メッセージを固定しました！', flags: MessageFlags.Ephemeral});
 }
 
     if (commandName === 'unpin') {
       const channelId = interaction.channel.id;
       const existing = await getPinnedByChannel(channelId);
-      if (!existing) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', ephemeral: true});
+      if (!existing) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', flags: MessageFlags.Ephemeral});
 
       const pinnedMsgId = existing.message_id;
       const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
       if (msg) await msg.delete().catch(() => {});
       await deletePinned(channelId);
 
-      return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', ephemeral: true});
+      return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', flags: MessageFlags.Ephemeral});
     }
   
 //-/play ---
@@ -521,7 +521,7 @@ if (!interaction.deferred && !interaction.replied) {
 }
 
     if (!voiceChannel)
-      return interaction.editReply({ content: '❌ まずボイスチャンネルに参加してね！', ephemeral: true });
+      return interaction.editReply({ content: '❌ まずボイスチャンネルに参加してね！', flags: MessageFlags.Ephemeral });
 
     let guildQueue = queues.get(interaction.guild.id);
     if (!guildQueue) {
@@ -619,7 +619,7 @@ if (!interaction.deferred && !interaction.replied) {
   if (commandName === 'gatyalist') {
     try{
       if (forumThreadsData.length === 0) {
-        return interaction.reply({ content: '❌ ガチャデータが読み込まれていません', ephemeral: true });
+        return interaction.reply({ content: '❌ ガチャデータが読み込まれていません', flags: MessageFlags.Ephemeral });
       }
 
       const embeds = forumThreadsData.map(thread => {
@@ -634,7 +634,7 @@ if (!interaction.deferred && !interaction.replied) {
 
       // Embed は 1 回に最大 10 件まで
       for (let i = 0; i < embeds.length; i += 10) {
-        await interaction.reply({ embeds: embeds.slice(i, i + 10), ephemeral: true });
+        await interaction.reply({ embeds: embeds.slice(i, i + 10), flags: MessageFlags.Ephemeral });
       }
     }catch(e){
       interaction.reply("エラー:" + e);
@@ -649,7 +649,7 @@ if (!interaction.deferred && !interaction.replied) {
   // /account info
   // -----------------------
   if (interaction.commandName === "account" && interaction.options.getSubcommand() === "info") {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const target = interaction.options.getUser("user") || interaction.user;
 
@@ -657,7 +657,7 @@ if (!interaction.deferred && !interaction.replied) {
     if (!acc)
       return interaction.editReply({
         content: "このユーザーはまだアカウントありません！",
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
 
     return interaction.editReply({
@@ -685,7 +685,7 @@ if (!interaction.deferred && !interaction.replied) {
   // /account settings
   // -----------------------
   if (interaction.commandName === "account" && interaction.options.getSubcommand() === "settings") {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const set = interaction.options.getString("set");
     const type = interaction.options.getString("type");
     const value = interaction.options.getString("value");
@@ -802,7 +802,7 @@ try{
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply("エラーが発生したよ。管理者に確認してね。");
     } else {
-      await interaction.reply({ content: "エラーが発生したよ。", ephemeral: true });
+      await interaction.reply({ content: "エラーが発生したよ。", flags: MessageFlags.Ephemeral });
     }
     // 追加: ここで errorReporter に投げても良い
   }
@@ -810,7 +810,7 @@ if (interaction.commandName === "createaccount") {
     if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({
             content: "🚫 このコマンドは管理者専用だよ〜！",
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 
@@ -831,7 +831,7 @@ if (interaction.commandName === "createaccount") {
         try {
             await interaction.followUp({
                 content: "⚠ エラーが起きたかも…！もう一度試してみてね！",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         } catch {}
     }
@@ -842,7 +842,7 @@ if (interaction.commandName === "createaccount") {
     // -----------------------------------
     if (interaction.commandName === "deleteaccount") {
         if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-            return interaction.reply({ content: "🚫 管理者じゃないとダメだよ！", ephemeral: true });
+            return interaction.reply({ content: "🚫 管理者じゃないとダメだよ！", flags: MessageFlags.Ephemeral });
         }
 
         try {
@@ -856,7 +856,7 @@ if (interaction.commandName === "createaccount") {
             );
         } catch (err) {
             console.error(err);
-            await interaction.followUp({ content: "⚠ エラーが起きたよ…", ephemeral: true });
+            await interaction.followUp({ content: "⚠ エラーが起きたよ…", flags: MessageFlags.Ephemeral });
         }
     }
 
@@ -865,7 +865,7 @@ if (interaction.commandName === "createaccount") {
     // -----------------------------------
     if (interaction.commandName === "transferaccount") {
         if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-            return interaction.reply({ content: "🚫 権限足りないよ！", ephemeral: true });
+            return interaction.reply({ content: "🚫 権限足りないよ！", flags: MessageFlags.Ephemeral });
         }
 
         try {
@@ -881,7 +881,7 @@ if (interaction.commandName === "createaccount") {
             );
         } catch (err) {
             console.error(err);
-            await interaction.followUp({ content: "⚠ エラーが起きたよ…", ephemeral: true });
+            await interaction.followUp({ content: "⚠ エラーが起きたよ…", flags: MessageFlags.Ephemeral });
         }
     }
 
@@ -911,7 +911,7 @@ if (interaction.commandName === "myxp") {
         );
     } catch (err) {
         console.error(err);
-        await interaction.followUp({ content: "⚠ エラーが起きたよ…", ephemeral: true });
+        await interaction.followUp({ content: "⚠ エラーが起きたよ…", flags: MessageFlags.Ephemeral });
     }
 }
 });         
