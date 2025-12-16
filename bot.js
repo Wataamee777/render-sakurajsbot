@@ -12,7 +12,7 @@ import {
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
-  MessegeFlags,
+  MessageFlags,
   PermissionsBitField,
   PermissionFlagsBits
 } from 'discord.js';
