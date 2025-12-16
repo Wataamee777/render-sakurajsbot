@@ -31,7 +31,7 @@
     "chart.js": "^4.4.1",
     "chartjs-node-canvas": "^5.0.0",
     "pidusage": "^3.0.2",
-    "systeminformation": "^5.27.11"
+    "systeminformation": "^5.27.14"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
