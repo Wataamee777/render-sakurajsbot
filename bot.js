@@ -1137,7 +1137,8 @@ client.on('error', (err) => {
     // Unknown interaction は無視
     console.warn('無視された DiscordAPIError[10062]');
     return;
-  });
+  }
+});
 
 client.on('messageCreate', async messege => {
   // 自分のBotの返信だけ避ける
