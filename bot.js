@@ -1179,7 +1179,8 @@ client.on('messageCreate', async messege => {
 cron.schedule(
   "0 5 * * *",
   async () => {
-  if (process.env.SHARD_ID === "0") {
+    if (process.env.SHARD_ID !== "0") return;
+
     try {
       console.log("📢 Sending daily odai…");
 
@@ -1191,10 +1192,12 @@ cron.schedule(
       if (!unused || unused.length === 0) {
         console.log("🔄 Resetting all odai to unused…");
         await supabase.from("odai").update({ used: false });
+
         const res2 = await supabase
           .from("odai")
           .select("*")
           .eq("used", false);
+
         unused = res2.data;
       }
 
@@ -1219,13 +1222,15 @@ cron.schedule(
         .from("odai")
         .update({ used: true })
         .eq("id", pick.id);
+
     } catch (err) {
       console.error("❌ Cron error:", err);
     }
   },
-  { timezone: "Asia/Tokyo" }
-});
-
+  {
+    timezone: "Asia/Tokyo",
+  }
+);
 
 // ready
 client.once('ready', async () => {
