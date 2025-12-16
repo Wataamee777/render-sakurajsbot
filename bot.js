@@ -12,6 +12,7 @@ import {
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessegeFlags,
   PermissionsBitField,
   PermissionFlagsBits
 } from 'discord.js';
@@ -495,20 +496,20 @@ client.on('interactionCreate', async interaction => {
   const sent = await interaction.channel.send({ embeds: [embed] });
   await upsertPinned(channelId, sent.id, msg, interaction.user.tag);
 
-  return interaction.editReply({ content: '📌 メッセージを固定しました！', flags: 64 });
+  return interaction.editReply({ content: '📌 メッセージを固定しました！', ephemeral: true});
 }
 
     if (commandName === 'unpin') {
       const channelId = interaction.channel.id;
       const existing = await getPinnedByChannel(channelId);
-      if (!existing) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', flags: 64 });
+      if (!existing) return interaction.reply({ content: '❌ このチャンネルには固定メッセージがありません', ephemeral: true});
 
       const pinnedMsgId = existing.message_id;
       const msg = await interaction.channel.messages.fetch(pinnedMsgId).catch(() => null);
       if (msg) await msg.delete().catch(() => {});
       await deletePinned(channelId);
 
-      return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', flags: 64 });
+      return interaction.reply({ content: '🗑️ 固定メッセージを解除しました！', ephemeral: true});
     }
   
 //-/play ---
