@@ -21,8 +21,8 @@ import {
   createAudioPlayer,
   createAudioResource,
   AudioPlayerStatus,
-  getVoiceConnection,
-  NoSubscriberBehavior
+  entersState,
+  StreamType
 } from '@discordjs/voice';
 import ytdl from 'ytdl-core';
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
@@ -518,62 +518,74 @@ client.on('interactionCreate', async interaction => {
   
 //-/play ---
   if (commandName === 'play') {
-    const url = interaction.options.getString('url');
-    const voiceChannel = interaction.member?.voice?.channel;
-if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferReply();
-}
 
-    if (!voiceChannel)
-      return interaction.editReply({ content: '❌ まずボイスチャンネルに参加してね！', flags: MessageFlags.Ephemeral });
+  const url = interaction.options.getString("url");
 
-    let guildQueue = queues.get(interaction.guild.id);
-    if (!guildQueue) {
-      guildQueue = {
-        connection: null,
-        player: createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Stop } }),
-        songs: [],
-        playing: false,
-        textChannel: interaction.channel,
-      };
-      queues.set(interaction.guild.id, guildQueue);
-    }
+  if (!ytdl.validateURL(url)) {
+    return interaction.reply({
+      content: "❌ 無効なYouTube URLです",
+      ephemeral: true
+    });
+  }
 
-    try {
-      if (!ytdl.validateURL(url)) {
-        return interaction.editReply('⚠️ 有効なYouTube URLを入れてね！');
-      }
+  const channel = interaction.member.voice?.channel;
+  if (!channel) {
+    return interaction.reply({
+      content: "🔊 先にボイスチャンネルに参加してね",
+      ephemeral: true
+    });
+  }
 
-      const info = await ytdl.getInfo(url);
-      const title = info.videoDetails.title;
-      const stream = ytdl(url, {
-        filter: 'audioonly',
-        quality: 'highestaudio',
-        highWaterMark: 1 << 25,
-      });
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setDescription("▶️ 再生準備中…")
+        .setColor(0xaaaaaa)
+    ]
+  });
 
-      guildQueue.songs.push({
-        title,
-        url,
-        stream,
-        type: 'opus'
-      });
+  const connection = joinVoiceChannel({
+    channelId: channel.id,
+    guildId: channel.guild.id,
+    adapterCreator: channel.guild.voiceAdapterCreator,
+    selfDeaf: true
+  });
 
-      if (!guildQueue.playing) {
-        guildQueue.playing = true;
-        guildQueue.connection = joinVoiceChannel({
-          channelId: voiceChannel.id,
-          guildId: interaction.guild.id,
-          adapterCreator: interaction.guild.voiceAdapterCreator,
-        });
-        playNext(interaction.guild.id);
-      }
+  const player = createAudioPlayer();
+  connection.subscribe(player);
 
-      await interaction.editReply(`🎶 **${title}** を再生キューに追加したよ！`);
-    } catch (err) {
-      console.error('再生エラー詳細:', err);
-      await interaction.editReply('💥 再生中にエラーが発生しました…');
-    }
+  const stream = ytdl(ytdl.getURLVideoID(url), {
+    filter: format =>
+      format.audioCodec === "opus" &&
+      format.container === "webm",
+    quality: "highest",
+    highWaterMark: 32 * 1024 * 1024
+  });
+
+  const resource = createAudioResource(stream, {
+    inputType: StreamType.WebmOpus
+  });
+
+  player.play(resource);
+
+  try {
+    await entersState(player, AudioPlayerStatus.Playing, 10_000);
+
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setDescription("🎶 再生中")
+          .setColor(0x55ff99)
+      ]
+    });
+
+    await entersState(player, AudioPlayerStatus.Idle, 24 * 60 * 60 * 1000);
+  } catch (e) {
+    console.error(e);
+    await interaction.editReply("⚠️ 再生に失敗しました");
+  } finally {
+    connection.destroy();
+  }
   }
 
   // --- /skip ---
@@ -1102,14 +1114,65 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
         .eq("userid", userId);
   });
 
-// pinned_messages update on messageCreate
-client.on('messageCreate', async message => {
-    if (message.author.bot) return;
-  const channelId = message.channel.id;
+async function handleAI(message) {
+  const now = Date.now();
+  const last = rateLimit.get(message.author.id) ?? 0;
 
-  // avoid shards other than 0 updating DB
-  if (client.shard && client.shard.ids[0] !== 0) return;
+  if (now - last < COOLDOWN) {
+    const remain = ((COOLDOWN - (now - last)) / 1000).toFixed(1);
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("⏱ クールダウン")
+          .setDescription(`あと **${remain}秒**`)
+          .setColor(0xff6666)
+      ]
+    });
+  }
 
+  rateLimit.set(message.author.id, now);
+
+  try {
+    const thinking = await message.reply({
+      embeds: [new EmbedBuilder().setDescription("Thinking…").setColor(0xaaaaaa)]
+    });
+
+    const res = await fetch(
+      "https://router.huggingface.co/hf-inference/models/google/flan-t5-small",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.HF_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ inputs: message.content })
+      }
+    );
+
+    const data = await res.json();
+    const text = data?.[0]?.generated_text ?? "……";
+
+    await thinking.edit({
+      embeds: [
+        new EmbedBuilder()
+          .setAuthor({
+            name: message.author.username,
+            iconURL: message.author.displayAvatarURL()
+          })
+          .setDescription(text.slice(0, 4000))
+          .setColor(0x55ff99)
+          .setFooter({ text: "powered by Hugging Face" })
+      ]
+    });
+
+  } catch (e) {
+    rateLimit.delete(message.author.id);
+    console.error(e);
+    message.reply("⚠️ AIエラー");
+  }
+}
+
+ async function handleAI(){
   try {
     const pinData = await getPinnedByChannel(channelId);
     if (!pinData) return;
@@ -1128,107 +1191,27 @@ client.on('messageCreate', async message => {
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
+ }
+client.on("messageCreate", async message => {
+  if (message.author.bot) return;
 
-  if (msg.author.bot) return;
+  // shard 0 以外はDB触らない
+  if (client.shard && client.shard.ids[0] !== 0) return;
 
-    if (message.author.bot) return;
+  const channelId = message.channel.id;
 
-    const userId = message.author.id;
-    await addUserExperience(userId, "text");  
-  });
-
-client.on('error', (err) => {
-  if (err.code === 10062) {
-    // Unknown interaction は無視
-    console.warn('無視された DiscordAPIError[10062]');
-    return;
+  // ===== AIチャンネル =====
+  if (channelId === AI_CHANNEL_ID) {
+    return handleAI();
   }
+
+  // ===== 固定メッセージ更新 =====
+  await handlePinned(message);
+
+  // ===== XP加算 =====
+  await addUserExperience(message.author.id, "text");
 });
 
-client.on('messageCreate', async messege => {
-  // 自分のBotの返信だけ避ける
-  if (message.channel.id === AI_CHANNEL_ID) {
-    if (message.author.bot) return;
-      // ===== レートリミット =====
-  const now = Date.now();
-  const last = rateLimit.get(message.author.id) ?? 0;
-
-  if (now - last < COOLDOWN) {
-    const remain = ((COOLDOWN - (now - last)) / 1000).toFixed(1);
-
-    const limitEmbed = new EmbedBuilder()
-      .setTitle("⏱ クールダウン")
-      .setDescription(`あと **${remain}秒**`)
-      .setColor(0xff6666);
-
-    return message.reply({ embeds: [limitEmbed] });
-  }
-
-  rateLimit.set(message.author.id, now);
-
-  // ===== AI呼び出し =====
-  try {
-    const thinkingEmbed = new EmbedBuilder()
-      .setDescription("Thinking…")
-      .setColor(0xaaaaaa);
-
-    const replyMsg = await message.reply({ embeds: [thinkingEmbed] });
-
-    const res = await fetch(
-      "https://router.huggingface.co/hf-inference/models/google/flan-t5-small",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.HF_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          inputs: message.content
-        })
-      }
-    );
-
-    const data = await res.json();
-
-    if (data?.error?.includes("loading")) {
-      return replyMsg.edit({
-        embeds: [
-          new EmbedBuilder()
-            .setDescription("⏳ AI起動中…ちょい待って！")
-            .setColor(0xffcc00)
-        ]
-      });
-    }
-
-    const text = data?.[0]?.generated_text ?? "……";
-
-    const aiEmbed = new EmbedBuilder()
-      .setAuthor({
-        name: message.author.username,
-        iconURL: message.author.displayAvatarURL()
-      })
-      .setDescription(text.slice(0, 4000))
-      .setColor(0x55ff99)
-      .setFooter({ text: "powered by huggingface" });
-
-    await replyMsg.edit({ embeds: [aiEmbed] });
-
-  } catch (err) {
-    console.error(err);
-    rateLimit.delete(message.author.id);
-
-    message.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setDescription("⚠️ エラーでAI返せなかった…")
-          .setColor(0xff5555)
-      ]
-    });
-  }
-
-  console.error('Discord Client Error:', err);
-}
-});
 // 📌 JST 5:00 の Cron ジョブ（お題送信）
 cron.schedule(
   "0 5 * * *",
@@ -1238,25 +1221,30 @@ cron.schedule(
     try {
       console.log("📢 Sending daily odai…");
 
-      let { data: unused } = await supabase
+      // 1. 未使用のお題を取得
+      let { data: unused, error: fetchError } = await supabase
         .from("odai")
         .select("*")
         .eq("used", false);
 
+      if (fetchError) throw fetchError;
+
+      // 2. もし未使用がなければリセット
       if (!unused || unused.length === 0) {
         console.log("🔄 Resetting all odai to unused…");
-        await supabase.from("odai").update({ used: false });
+        // 全件のusedをfalseに戻す (idが0より大きいものを対象にする例)
+        await supabase.from("odai").update({ used: false }).gt("id", 0);
 
-        const res2 = await supabase
-          .from("odai")
-          .select("*")
-          .eq("used", false);
-
-        unused = res2.data;
+        // リセット後、改めて全件取得
+        const { data: allOdai } = await supabase.from("odai").select("*");
+        unused = allOdai;
       }
 
+      // 3. ランダムに一つ選択
       const pick = unused[Math.floor(Math.random() * unused.length)];
+      if (!pick) return console.log("⚠️ No odai found.");
 
+      // 4. Discord送信
       const channel = await client.channels.fetch(DISCORD_CHAT_CHANNEL_ID);
       await channel.send({
         embeds: [
@@ -1264,7 +1252,8 @@ cron.schedule(
             title: "今日のお題",
             description: pick.text,
             color: 0x00bfff,
-            footer: { text: "powered by <@1099098129338466385>" },
+            // メンションを有効にしたい場合は description に含めるのがおすすめ
+            footer: { text: `ID: ${pick.id} | 次回のリセットまで残り ${unused.length - 1} 件` },
             timestamp: new Date().toISOString(),
           },
         ],
@@ -1272,6 +1261,7 @@ cron.schedule(
 
       console.log("✨ Sent:", pick.text);
 
+      // 5. 使用済みに更新
       await supabase
         .from("odai")
         .update({ used: true })
