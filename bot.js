@@ -548,7 +548,8 @@ client.on('interactionCreate', async interaction => {
     channelId: channel.id,
     guildId: channel.guild.id,
     adapterCreator: channel.guild.voiceAdapterCreator,
-    selfDeaf: true
+    selfDeaf: true,
+    selfMute: false
   });
 
   const player = createAudioPlayer();
