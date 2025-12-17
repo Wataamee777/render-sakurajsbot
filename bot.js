@@ -1174,7 +1174,7 @@ async function handleAI(message) {
 
  async function handlePinned(){
   try {
-    const pinData = await getPinnedByChannel(channelId);
+    const pinData = await getPinnedByChannel(message.channel.id);
     if (!pinData) return;
 
     const oldMsg = await message.channel.messages.fetch(pinData.message_id).catch(() => null);
@@ -1198,15 +1198,13 @@ client.on("messageCreate", async message => {
   // shard 0 以外はDB触らない
   if (client.shard && client.shard.ids[0] !== 0) return;
 
-  const channelId = message.channel.id;
-
   // ===== AIチャンネル =====
   if (channelId === AI_CHANNEL_ID) {
     return handleAI();
   }
 
   // ===== 固定メッセージ更新 =====
-  await handlePinned(message);
+  await handlePinned();
 
   // ===== XP加算 =====
   await addUserExperience(message.author.id, "text");
