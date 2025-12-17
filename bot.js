@@ -56,7 +56,7 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID || !DISCORD_RO
 
 const queues = new Map();
 
-const AI_CHANNEL_ID = "undefined";
+const AI_CHANNEL_ID = "1450782867335549031";
 const COOLDOWN = 3 * 1000; // 3秒
 const rateLimit = new Map();
 
