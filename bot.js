@@ -56,6 +56,10 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID || !DISCORD_RO
 
 const queues = new Map();
 
+const AI_CHANNEL_ID = "undefined";
+const COOLDOWN = 3 * 1000; // 3秒
+const rateLimit = new Map();
+
 export const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -1143,38 +1147,87 @@ client.on('error', (err) => {
 
 client.on('messageCreate', async messege => {
   // 自分のBotの返信だけ避ける
-  if (message.author.id === client.user.id) return;
+  if (message.channel.id === AI_CHANNEL_ID) {
+    if (message.author.bot) return;
+      // ===== レートリミット =====
+  const now = Date.now();
+  const last = rateLimit.get(message.author.id) ?? 0;
 
-  // 他のBot（DISBOARDなど）は通す
-  if (!message.embeds.length) return; // テキストだけのメッセージは弾く
+  if (now - last < COOLDOWN) {
+    const remain = ((COOLDOWN - (now - last)) / 1000).toFixed(1);
 
-  const embed = message.embeds[0];
-  const text = `${embed.title || ""} ${embed.description || ""}`;
+    const limitEmbed = new EmbedBuilder()
+      .setTitle("⏱ クールダウン")
+      .setDescription(`あと **${remain}秒**`)
+      .setColor(0xff6666);
 
-  const { data: settings } = await supabase
-    .from("bump_settings")
-    .select("*")
-    .eq("bot_id", message.author.id);
+    return message.reply({ embeds: [limitEmbed] });
+  }
 
-  if (!settings?.length) return;
+  rateLimit.set(message.author.id, now);
 
-  for (const s of settings) {
-    if (text.includes(s.trigger_text)) {
-      // ← 検出OK
-      await supabase.from("bump_logs").insert({
-        bot_id: msg.author.id,
-        detected_at: new Date().toISOString(),
-        channel_id: msg.channel.id,
-        command_id: s.command_id
+  // ===== AI呼び出し =====
+  try {
+    const thinkingEmbed = new EmbedBuilder()
+      .setDescription("Thinking…")
+      .setColor(0xaaaaaa);
+
+    const replyMsg = await message.reply({ embeds: [thinkingEmbed] });
+
+    const res = await fetch(
+      "https://router.huggingface.co/hf-inference/models/google/flan-t5-small",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.HF_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          inputs: message.content
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    if (data?.error?.includes("loading")) {
+      return replyMsg.edit({
+        embeds: [
+          new EmbedBuilder()
+            .setDescription("⏳ AI起動中…ちょい待って！")
+            .setColor(0xffcc00)
+        ]
       });
-
-      message.channel.send(
-        `bump検知したよ〜！⏱ 次は **${s.wait_minutes}分後** にリマインドするね！`
-      );
     }
+
+    const text = data?.[0]?.generated_text ?? "……";
+
+    const aiEmbed = new EmbedBuilder()
+      .setAuthor({
+        name: message.author.username,
+        iconURL: message.author.displayAvatarURL()
+      })
+      .setDescription(text.slice(0, 4000))
+      .setColor(0x55ff99)
+      .setFooter({ text: "powered by huggingface" });
+
+    await replyMsg.edit({ embeds: [aiEmbed] });
+
+  } catch (err) {
+    console.error(err);
+    rateLimit.delete(message.author.id);
+
+    message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setDescription("⚠️ エラーでAI返せなかった…")
+          .setColor(0xff5555)
+      ]
+    });
   }
 
   console.error('Discord Client Error:', err);
+}
 });
 // 📌 JST 5:00 の Cron ジョブ（お題送信）
 cron.schedule(
