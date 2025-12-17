@@ -1188,7 +1188,7 @@ async function handleAI(message) {
       .setTimestamp();
 
     const sent = await message.channel.send({ embeds: [embed] });
-    await upsertPinned(channelId, sent.id);
+    await upsertPinned(message.channel.Id, sent.id);
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
@@ -1200,7 +1200,7 @@ client.on("messageCreate", async message => {
   if (client.shard && client.shard.ids[0] !== 0) return;
 
   // ===== AIチャンネル =====
-  if (channelId === AI_CHANNEL_ID) {
+  if (message.channel.Id === AI_CHANNEL_ID) {
     return handleAI();
   }
 
