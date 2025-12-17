@@ -1172,7 +1172,7 @@ async function handleAI(message) {
   }
 }
 
- async function handleAI(){
+ async function handlePinned(){
   try {
     const pinData = await getPinnedByChannel(channelId);
     if (!pinData) return;
