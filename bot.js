@@ -1173,9 +1173,9 @@ async function handleAI(message) {
   }
 }
 
- async function handlePinned(chid){
+ async function handlePinned(message){
   try {
-    const pinData = await getPinnedByChannel(chid);
+    const pinData = await getPinnedByChannel(message.channnel.id);
     if (!pinData) return;
 
     const oldMsg = await message.channel.messages.fetch(pinData.message_id).catch(() => null);
@@ -1188,7 +1188,7 @@ async function handleAI(message) {
       .setTimestamp();
 
     const sent = await message.channel.send({ embeds: [embed] });
-    await upsertPinned(chid, sent.id);
+    await upsertPinned(message.channnel.id, sent.id);
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
@@ -1205,7 +1205,7 @@ client.on("messageCreate", async message => {
   }
 
   // ===== 固定メッセージ更新 =====
-  await handlePinned(message.channel.id);
+  await handlePinned(message);
 
   // ===== XP加算 =====
   await addUserExperience(message.author.id, "text");
