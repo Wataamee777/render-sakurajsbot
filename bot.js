@@ -1175,6 +1175,9 @@ async function handleAI(message) {
 
  async function handlePinned(message){
   try {
+    if (message.partial) await message.fetch().catch(() => null);
+    if (!message.channel) return;
+
     const pinData = await getPinnedByChannel(message.channel.id);
     if (!pinData) return;
 
