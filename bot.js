@@ -1191,7 +1191,7 @@ async function handleAI(message) {
       .setTimestamp();
 
     const sent = await message.channel.send({ embeds: [embed] });
-    await upsertPinned(message.channnel.id, sent.id);
+    await upsertPinned(message.channel.id, sent.id);
   } catch (err) {
     console.error('固定メッセージ更新エラー:', err);
   }
@@ -1200,7 +1200,6 @@ client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
   // shard 0 以外はDB触らない
-  if (client.shard && client.shard.ids[0] !== 0) return;
 
   // ===== AIチャンネル =====
   if (message.channel.Id === AI_CHANNEL_ID) {
@@ -1218,7 +1217,7 @@ client.on("messageCreate", async message => {
 cron.schedule(
   "0 5 * * *",
   async () => {
-    if (process.env.SHARD_ID !== "0") return;
+  if (client.shard && client.shard.ids[0] !== 0) return;
 
     try {
       console.log("📢 Sending daily odai…");
