@@ -20,8 +20,8 @@ const DISCORD_API = "https://discord.com/api";
 function adminOAuthURL() {
   return `https://discord.com/oauth2/authorize?` +
     new URLSearchParams({
-      client_id: process.env.CLIENT_ID,
-      redirect_uri: process.env.ADMIN_REDIRECT_URI,
+      client_id: process.env.DISCORD_CLIENT_ID,
+      redirect_uri: https%3A%2F%2Fbot.sakurahp.f5.si%2Fadmins%2Fcallback,
       response_type: "code",
       scope: "identify",
     });
@@ -33,11 +33,11 @@ async function getDiscordUser(code) {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.CLIENT_ID,
-      client_secret: process.env.CLIENT_SECRET,
+      client_id: process.env.DISCORD_CLIENT_ID,
+      client_secret: process.env.DISCORD_CLIENT_SECRET,
       grant_type: "authorization_code",
       code,
-      redirect_uri: process.env.ADMIN_REDIRECT_URI,
+      redirect_uri: https%3A%2F%2Fbot.sakurahp.f5.si%2Fadmins%2Fcallback,
     }),
   }).then(r => r.json());
 
