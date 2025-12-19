@@ -4,10 +4,23 @@
 name: Node.js CI
 
 on:
+  # 1. 普通にコードをプッシュしたとき（package.json をいじってないとき用）
   push:
-    branches: [ "main" ]
+    branches: [ main ]
+    paths-ignore:
+      - 'package.json'
+      - 'package-lock.json'
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
+    paths-ignore:
+      - 'package.json'
+      - 'package-lock.json'
+
+  # 2. Update Lockfile が終わったとき（package.json をいじったとき用）
+  workflow_run:
+    workflows: ["Update Lockfile"]
+    types:
+      - completed
 
 jobs:
   build:
