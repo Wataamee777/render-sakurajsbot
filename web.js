@@ -1,5 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import cookieParser from "cookie-parser";
 import dotenv from 'dotenv';
 dotenv.config();
 import { supabase } from "./db.js";
@@ -9,8 +10,56 @@ import cors from 'cors';
 const app = express();
 app.use(cors()); // CORS回避
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ extended: true }))
+app.use(cookieParser());
 const PORT = process.env.PORT || 3000;
+
+const DISCORD_API = "https://discord.com/api";
+
+// ===== OAuth2 URL =====
+function adminOAuthURL() {
+  return `https://discord.com/oauth2/authorize?` +
+    new URLSearchParams({
+      client_id: process.env.CLIENT_ID,
+      redirect_uri: process.env.ADMIN_REDIRECT_URI,
+      response_type: "code",
+      scope: "identify",
+    });
+}
+
+// ===== Discord user取得 =====
+async function getDiscordUser(code) {
+  const token = await fetch(`${DISCORD_API}/oauth2/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.CLIENT_ID,
+      client_secret: process.env.CLIENT_SECRET,
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: process.env.ADMIN_REDIRECT_URI,
+    }),
+  }).then(r => r.json());
+
+  return fetch(`${DISCORD_API}/users/@me`, {
+    headers: { Authorization: `Bearer ${token.access_token}` },
+  }).then(r => r.json());
+}
+
+// ===== 管理者チェック =====
+async function requireAdmin(req, res, next) {
+  const adminId = req.cookies.admin;
+  if (!adminId) return res.redirect(adminOAuthURL());
+
+  const { data } = await supabase
+    .from("admins")
+    .select("discord_id")
+    .eq("discord_id", adminId)
+    .single();
+
+  if (!data) return res.sendStatus(401);
+  next();
+}
 
 // 認証ページ
 app.get('/auth/', (req, res) => {
@@ -153,6 +202,105 @@ app.get('/auth/callback', async (req, res) => {
     console.error(err);
     res.status(500).send('認証エラー');
   }
+});
+
+// ===== 管理画面 =====
+app.get("/admins", requireAdmin, async (req, res) => {
+  const { data } = await supabase
+    .from("warned_users")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  const rows = (data || []).map(u => `
+    <tr>
+      <td>${u.discord_id}</td>
+      <td>${u.reason}</td>
+      <td>${new Date(u.updated_at).toLocaleString()}</td>
+    </tr>
+  `).join("");
+
+  res.send(`
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>運営管理 - 危険ユーザー</title>
+<style>
+body { font-family: sans-serif; background:#f5f5f5; padding:20px }
+h1 { margin-bottom:10px }
+table { border-collapse: collapse; width:100%; background:#fff }
+th, td { border:1px solid #ccc; padding:8px }
+th { background:#eee }
+form { margin-top:20px; background:#fff; padding:15px }
+input, textarea, button { width:100%; margin-top:5px; padding:8px }
+button { margin-top:10px }
+</style>
+</head>
+<body>
+
+<h1>⚠ 危険ユーザー一覧</h1>
+
+<table>
+<tr>
+  <th>Discord ID</th>
+  <th>理由</th>
+  <th>更新日時</th>
+</tr>
+${rows || "<tr><td colspan='3'>まだ登録なし</td></tr>"}
+</table>
+
+<h2>➕ 追加</h2>
+<form method="POST" action="/admins/add">
+  <label>Discord ID</label>
+  <input name="targetId" required>
+
+  <label>理由</label>
+  <textarea name="reason" required></textarea>
+
+  <button type="submit">追加する</button>
+</form>
+
+</body>
+</html>
+  `);
+});
+
+// ===== callback =====
+app.get("/admins/callback", async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.sendStatus(401);
+
+  const user = await getDiscordUser(code);
+
+  const { data } = await supabase
+    .from("admins")
+    .select("discord_id")
+    .eq("discord_id", user.id)
+    .single();
+
+  if (!data) return res.sendStatus(401);
+
+  res.cookie("admin", user.id, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 24,
+  });
+
+  res.redirect("/admins");
+});
+
+// ===== 追加処理 =====
+app.post("/admins/add", requireAdmin, async (req, res) => {
+  const { targetId, reason } = req.body;
+
+  await supabase.from("warned_users").upsert({
+    discord_id: targetId,
+    reason,
+    updated_at: new Date(),
+  });
+
+  res.redirect("/admins");
 });
 
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
