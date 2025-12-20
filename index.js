@@ -15,3 +15,8 @@ manager.on('shardCreate', shard => {
 });
 
 manager.spawn();
+setInterval(() => {
+  https.get('https://bot.sakurahp.f5.si/', (res) => {
+       console.log('[Online]' + new Date().toLocaleString());
+  });
+}, 120000);
