@@ -1200,7 +1200,7 @@ client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
   // shard 0 以外はDB触らない
-if (client.shard.ids.includes(0)) {
+if (process.env.SHARD_ID === "0") {
   // ===== AIチャンネル =====
   if (message.channel.Id === AI_CHANNEL_ID) {
     return handleAI();
