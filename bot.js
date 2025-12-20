@@ -1200,7 +1200,7 @@ client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
   // shard 0 以外はDB触らない
-
+if (client.shard.ids.includes(0)) {
   // ===== AIチャンネル =====
   if (message.channel.Id === AI_CHANNEL_ID) {
     return handleAI();
@@ -1211,6 +1211,7 @@ client.on("messageCreate", async message => {
 
   // ===== XP加算 =====
   await addUserExperience(message.author.id, "text");
+}
 });
 
 // 📌 JST 5:00 の Cron ジョブ（お題送信）
