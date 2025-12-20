@@ -21,7 +21,7 @@ function adminOAuthURL() {
   return `https://discord.com/oauth2/authorize?` +
     new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
-      redirect_uri: 'https%3A%2F%2Fbot.sakurahp.f5.si%2Fadmins%2Fcallback',
+      redirect_uri: 'https://bot.sakurahp.f5.si/admins/callback',
       response_type: "code",
       scope: "identify",
     });
@@ -37,7 +37,7 @@ async function getDiscordUser(code) {
       client_secret: process.env.DISCORD_CLIENT_SECRET,
       grant_type: "authorization_code",
       code,
-      redirect_uri: 'https%3A%2F%2Fbot.sakurahp.f5.si%2Fadmins%2Fcallback',
+      redirect_uri: 'https://bot.sakurahp.f5.si/admins/callback',
     }),
   }).then(r => r.json());
 
