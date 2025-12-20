@@ -1,6 +1,7 @@
 import { ShardingManager } from 'discord.js';
 import dotenv from 'dotenv';
 import './web.js';
+import https from "https";
 
 dotenv.config();
 
