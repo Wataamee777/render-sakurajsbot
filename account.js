@@ -49,7 +49,7 @@ export async function createUserAccount(userId) {
     try {
         const { error } = await supabase
             .from("accounts")
-            .insert(newUser)
+            .upsert(newUser)
             .select(); // 挿入されたレコードを返す場合は.select()を追加
 
         if (error) {
