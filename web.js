@@ -514,7 +514,7 @@ app.get("/shards/status", (_, res) => {
 
   res.json({
     ok: true,
-    updatedAt: shardState.updatedAt,
+    updatedAt: new Date(shardState.updatedAt * 1000);,
     shards: shardState.shards
   });
 });
