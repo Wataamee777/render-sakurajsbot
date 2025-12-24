@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import dotenv from 'dotenv';
 dotenv.config();
 import { supabase } from "./db.js";
+import { shardState } from "./index.js";
 import { handleOAuthCallback, client, voiceStates } from './bot.js';
 import cors from 'cors';
 
