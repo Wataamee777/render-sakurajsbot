@@ -511,10 +511,11 @@ app.get("/shards/status", (_, res) => {
       reason: "shard data not ready"
     });
   }
-
+const date = new Date(shardState.updatedAt * 1000);
+const localDateString = date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   res.json({
     ok: true,
-    updatedAt: new Date(shardState.updatedAt * 1000);,
+    updatedAt: localDateString,
     shards: shardState.shards
   });
 });
