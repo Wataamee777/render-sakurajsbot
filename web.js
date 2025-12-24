@@ -503,6 +503,21 @@ app.get("/api/invites/:code", async (req, res) => {
   }
 });
 
+app.get("shards/status", (_, res) => {
+  if (!shardState.shards.length) {
+    return res.status(503).json({
+      ok: false,
+      reason: "shard data not ready"
+    });
+  }
+
+  res.json({
+    ok: true,
+    updatedAt: shardState.updatedAt,
+    shards: shardState.shards
+  });
+});
+
 // 📌 /odai → HTML直書き + お題追加フォーム
 app.get("/odai", (req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
