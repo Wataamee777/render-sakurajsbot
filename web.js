@@ -503,7 +503,7 @@ app.get("/api/invites/:code", async (req, res) => {
   }
 });
 
-app.get("shards/status", (_, res) => {
+app.get("/shards/status", (_, res) => {
   if (!shardState.shards.length) {
     return res.status(503).json({
       ok: false,
