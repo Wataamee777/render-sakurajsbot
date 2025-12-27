@@ -593,4 +593,45 @@ app.post("/odai/add", async (req, res) => {
   res.redirect("/odai");
 });
 
+app.use((req, res) => {
+  res.status(404).send(`
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+      <meta charset="UTF-8">
+      <title>404 Not Found</title>
+      <style>
+        body {
+          margin: 0;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #0f172a;
+          color: #e5e7eb;
+          font-family: system-ui, sans-serif;
+        }
+        .box {
+          text-align: center;
+        }
+        h1 {
+          font-size: 4rem;
+          margin: 0;
+        }
+        p {
+          opacity: 0.8;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="box">
+        <h1>404</h1>
+        <p>このページは存在しません</p>
+        <small>${req.originalUrl}</small>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
